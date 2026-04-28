@@ -1,7 +1,92 @@
-\chapter*{Introduction Générale}
-\label{intro}
-\markboth{\MakeUppercase{Introduction Générale}}{\MakeUppercase{Introduction Générale}}
+\chapter*{Introduction Générale\label{intro}}
+\markboth{\uppercase{Introduction Générale}}{\uppercase{Introduction Générale}}
 \addcontentsline{toc}{chapter}{Introduction Générale}
 
-\Blindtext
+À l'ère de la transformation numérique accélérée, l'infrastructure cloud est devenue le socle
+indispensable de tout projet logiciel moderne. Les développeurs, startups et entreprises du monde
+entier s'appuient désormais sur des plateformes de déploiement automatisé pour mettre leurs
+applications en production rapidement, de manière fiable et sans maîtrise approfondie des
+mécanismes d'infrastructure sous-jacents. Des solutions de déploiement cloud ont démocratisé ce
+paradigme à l'échelle internationale, offrant une expérience de déploiement fluide résumée en
+quelques clics.
 
+Cependant, l'écosystème numérique algérien se heurte à des obstacles structurels qui rendent ces
+plateformes internationales difficilement accessibles. Les cartes bancaires algériennes sont
+fréquemment rejetées sur les plateformes étrangères, les frais de change imposent une surcharge
+financière significative, et la latence introduite par des serveurs situés en Europe ou aux
+États-Unis dégrade l'expérience des utilisateurs finaux locaux. Plus grave encore, les législations
+algériennes en vigueur — notamment la loi 18-07 relative à la protection des personnes physiques
+dans le traitement des données à caractère personnel, et la loi 25-11 portant sur la souveraineté
+numérique — imposent des contraintes réglementaires croissantes sur l'hébergement des données
+à l'étranger, exposant les entreprises locales à des risques de conformité non négligeables.
+
+C'est dans ce contexte que s'inscrit \textbf{Hostifer}, la première plateforme algérienne de type
+\textit{Platform-as-a-Service} (PaaS) reposant sur une architecture Kubernetes native. Hostifer
+a pour vocation de combler le fossé technologique entre les développeurs algériens et les standards
+internationaux de déploiement cloud, en proposant une solution entièrement hébergée en Algérie,
+facturée en dinars algériens (DZD), et conçue pour être conforme aux exigences réglementaires
+nationales.
+
+La plateforme permet à tout développeur, qu'il soit étudiant, freelance ou membre d'une startup,
+de déployer une application web en moins de cinq minutes à partir d'une simple URL GitHub, sans
+aucune connaissance préalable en administration système ou en orchestration de conteneurs. Le
+processus est entièrement automatisé : détection du framework applicatif, construction de l'image
+Docker via Railpack et Buildkit, provisionnement d'un environnement Kubernetes isolé, configuration
+du certificat SSL, et création d'un sous-domaine dédié — le tout orchestré par Argo Workflows et
+supervisé en temps réel par un système de streaming de logs basé sur Loki et Promtail.
+
+Notre projet vise ainsi à répondre à plusieurs enjeux simultanément :
+\begin{itemize}
+    \item \textbf{Un enjeu technique :} concevoir une architecture multi-tenant robuste, isolée
+    et scalable, exploitant les primitives natives de Kubernetes telles que les
+    \textit{Namespaces}, les \textit{NetworkPolicies}, les \textit{ResourceQuotas} et les
+    \textit{LimitRanges}, pour garantir une isolation stricte entre les projets des différents
+    utilisateurs.
+
+    \item \textbf{Un enjeu économique :} proposer une tarification transparente en dinars
+    algériens, compatible avec les moyens de paiement locaux (carte CIB, Edahabia, BaridiMob,
+    virement bancaire), et offrir un palier gratuit pour favoriser l'adoption auprès des
+    développeurs étudiants et indépendants.
+
+    \item \textbf{Un enjeu réglementaire :} assurer la conformité avec les lois algériennes
+    sur la protection des données et la souveraineté numérique, en hébergeant l'intégralité
+    de l'infrastructure sur le cloud algérien DjezzyCloud, opéré en partenariat avec
+    Alibaba Cloud.
+
+    \item \textbf{Un enjeu de souveraineté numérique :} contribuer à l'émergence d'une
+    infrastructure cloud locale de qualité professionnelle, réduisant la dépendance des
+    acteurs numériques algériens vis-à-vis des hébergeurs étrangers.
+\end{itemize}
+
+{\let\clearpage\relax \chapter*{Structure Du Mémoire}}
+\markboth{\uppercase{Structure Du Mémoire}}{\uppercase{Structure Du Mémoire}}
+\addcontentsline{toc}{chapter}{Structure Du Mémoire}
+
+Ce mémoire détaille la conception, le développement et la mise en œuvre de la plateforme
+Hostifer. Il s'articule autour d'une introduction générale, de trois chapitres principaux,
+d'une conclusion générale et d'une bibliographie.
+
+\begin{itemize}
+    \item \textbf{\uppercase{Chapitre 1}} \\
+    Nous dressons un état de l'art des plateformes PaaS existantes, en analysant les solutions
+    internationales leaders du marché ainsi que les initiatives locales algériennes émergentes.
+    Cette analyse comparative nous permet d'identifier les lacunes du marché algérien, de
+    justifier la pertinence du projet Hostifer, et de définir les exigences fonctionnelles et
+    non fonctionnelles auxquelles la plateforme doit répondre.
+
+    \item \textbf{\uppercase{Chapitre 2}} \\
+    Nous présentons la phase de conception de la plateforme, en décrivant les choix
+    architecturaux retenus : l'architecture multi-tenant sur Kubernetes, le pipeline de
+    déploiement orchestré par Argo Workflows, la gestion des secrets via HashiCorp Vault,
+    et la stratégie de collecte et de streaming des logs applicatifs. Des diagrammes UML
+    et des schémas d'architecture accompagnent cette description pour en illustrer
+    les interactions et les flux de données.
+
+    \item \textbf{\uppercase{Chapitre 3}} \\
+    Nous abordons la phase de réalisation, en détaillant les technologies utilisées pour
+    le développement du backend (NestJS), du frontend (Next.js), et de l'infrastructure
+    (k3s, Traefik, cert-manager, Buildkit, Railpack, Loki, Promtail). Nous présentons
+    les interfaces de la plateforme, le processus de déploiement de bout en bout, ainsi
+    que les résultats des tests fonctionnels réalisés sur des applications représentatives
+    de différents frameworks supportés.
+\end{itemize}
