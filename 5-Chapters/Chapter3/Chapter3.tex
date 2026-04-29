@@ -1,5 +1,291 @@
-\chapter{Title of the chapter}
-\section{Introduction}
-\section{References examples}
-You can cite like this\cite{RefA}, or like this \cite{RefA,RefB,RefC}.
-\section{Conclusion}
+\chapter{Réalisation et Implémentation}
+
+\section{Environnement de développement et de déploiement}
+
+\subsection{Infrastructure matérielle}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Caractéristiques de l'environnement de déploiement (CPU, RAM, stockage, OS, distribution Kubernetes)}
+	\label{tab:3.1}
+\end{table}
+
+\subsection{Outils de développement}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Environnement de développement (IDE, outils CLI, chaîne CI/CD, gestionnaires de paquets)}
+	\label{tab:3.2}
+\end{table}
+
+\subsection{Organisation des dépôts GitHub}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma d'organisation des dépôts GitHub et registres OCI}
+	\label{fig:3.1}
+\end{figure}
+
+\section{Implémentation du backend NestJS}
+
+\subsection{Structure modulaire de l'application}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Arborescence du projet NestJS avec description de chaque module (Auth, Users, Projects, Deployments, Logs, EnvVars, GitHub, Plans, Infrastructure)}
+	\label{fig:3.2}
+\end{figure}
+
+\subsection{Module d'authentification}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de séquence détaillé du refresh token (jwt callback → NestJS /auth/refresh → nouvelle paire de tokens → mise à jour session)}
+	\label{fig:3.3}
+\end{figure}
+
+\subsection{Module de déploiement et orchestration Argo}
+
+% Content here
+
+\subsection{Module de streaming des logs}
+
+% Content here
+
+\subsection{Module de gestion des variables d'environnement avec Vault}
+
+% Content here
+
+\subsection{Versioning et rollback des déploiements}
+
+% Content here
+
+\section{Implémentation du builder Go}
+
+\subsection{Structure du binaire}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Arborescence du projet Go builder (main.go, git.go, railpack.go, buildkit.go, logger.go)}
+	\label{fig:3.4}
+\end{figure}
+
+\subsection{Détection de framework}
+
+% Content here
+
+\subsection{Génération du plan Railpack}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Extrait du plan railpack-plan.json généré pour une application Node.js avec les modifications appliquées}
+	\label{fig:3.5}
+\end{figure}
+
+\subsection{Construction et push de l'image via Buildkit}
+
+% Content here
+
+\section{Implémentation de l'infrastructure Kubernetes}
+
+\subsection{Chart Helm multi-tenant}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Extrait du template NetworkPolicy illustrant l'isolation inter-tenant et l'autorisation Traefik uniquement}
+	\label{fig:3.6}
+\end{figure}
+
+\subsection{Pipeline Argo Workflows}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'interface Argo Workflows UI montrant un workflow de déploiement complet avec les trois étapes}
+	\label{fig:3.7}
+\end{figure}
+
+\subsection{Configuration de l'observabilité (Loki + Promtail)}
+
+% Content here
+
+\subsection{Gestion des certificats TLS avec cert-manager}
+
+% Content here
+
+\subsection{Collecte des métriques avec Prometheus}
+
+% Content here
+
+\section{Présentation des interfaces utilisateur}
+
+\subsection{Page d'accueil (Landing Page)}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de la section Hero de la landing page}
+	\label{fig:3.8}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de la section Pricing}
+	\label{fig:3.9}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de la section comparaison concurrentielle}
+	\label{fig:3.10}
+\end{figure}
+
+\subsection{Tableau de bord utilisateur}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran du dashboard avec liste des projets et statuts}
+	\label{fig:3.11}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de la page de détail d'un projet}
+	\label{fig:3.12}
+\end{figure}
+
+\subsection{Assistant de déploiement (Deploy Wizard)}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'étape 1 : validation de l'URL GitHub et détection du framework}
+	\label{fig:3.13}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'étape 2 : configuration (région, plan, variables d'environnement)}
+	\label{fig:3.14}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'étape 3 : streaming des logs de build en temps réel}
+	\label{fig:3.15}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'étape 4 : confirmation du déploiement réussi avec URL live}
+	\label{fig:3.16}
+\end{figure}
+
+\subsection{Gestion des variables d'environnement}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'interface de gestion des variables d'environnement avec masquage des secrets}
+	\label{fig:3.17}
+\end{figure}
+
+\subsection{Interface d'administration Argo Workflows}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Capture d'écran de l'interface Argo Workflows montrant les étapes Build, Provision, DNS d'un déploiement réel}
+	\label{fig:3.18}
+\end{figure}
+
+\section{Tests et validation}
+
+\subsection{Tests fonctionnels}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Résultats des tests de déploiement par framework (Express, NestJS, Next.js, Flask, Laravel) : statut, durée de build, mémoire consommée}
+	\label{tab:3.3}
+\end{table}
+
+\subsection{Tests d'isolation multi-tenant}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Résultats des tests d'isolation réseau (tentative de connexion inter-tenant, résultat attendu vs observé)}
+	\label{tab:3.4}
+\end{table}
+
+\subsection{Tests de charge et performance}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Graphique du temps de déploiement moyen par framework (de la soumission du workflow à l'état LIVE)}
+	\label{fig:3.19}
+\end{figure}
+
+\begin{table}[h]
+	\centering
+	\caption{Tableau de performance : temps de build moyen, latence SSE, consommation mémoire buildkitd pour 1, 3 et 5 builds simultanés, plus métriques d'autoscaling (temps de montée HPA, recommandations VPA, latence d'ajout de nœuds)}
+	\label{tab:3.5}
+\end{table}
+
+\subsection{Tests de conformité réglementaire}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Checklist de conformité (critère, mécanisme technique de conformité, statut vérifié)}
+	\label{tab:3.6}
+\end{table}
+
+\section{Bilan et perspectives}
+
+\subsection{Fonctionnalités réalisées}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Tableau de couverture fonctionnelle (besoin identifié au chapitre 2, statut d'implémentation : réalisé / partiel / reporté)}
+	\label{tab:3.7}
+\end{table}
+
+\subsection{Difficultés rencontrées}
+
+% Content here
+
+\subsection{Perspectives d'évolution}
+
+% Content here

@@ -1,19 +1,255 @@
-\chapter{Title of the chapter}
+\chapter{Conception et Architecture du Système}
 
-\section{Introduction}
-\section{Theorems and proofs examples}
-\begin{theorem}
-	Let \(f\) be a function whose derivative exists in every point, then \(f\) 
-	is a continuous function.
-\end{theorem}
-\begin{definition}
-	Let \(f\) be a function whose derivative exists in every point, then \(f\) 
-	is a continuous function.
-\end{definition}
-\begin{remark}
-	Let \(f\) be a function whose derivative exists in every point, then \(f\) 
-	is a continuous function.
-\end{remark}
+\section{Recueil et spécification des besoins}
 
+\subsection{Identification des acteurs}
 
-\section{Conclusion}
+% Content here
+
+\subsection{Besoins fonctionnels}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Table des besoins fonctionnels (ID, description, priorité MoSCoW, acteur concerné)}
+	\label{tab:2.1}
+\end{table}
+
+\subsection{Besoins non fonctionnels}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Table des besoins non fonctionnels (ID, catégorie, critère de satisfaction mesurable)}
+	\label{tab:2.2}
+\end{table}
+
+\section{Modélisation UML des cas d'utilisation}
+
+\subsection{Diagramme de cas d'utilisation global}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de cas d'utilisation global montrant tous les acteurs et leurs interactions avec le système (authentification, déploiement, gestion des projets, administration, CI/CD, logs)}
+	\label{fig:2.1}
+\end{figure}
+
+\subsection{Cas d'utilisation détaillés}
+
+% Content here
+
+\subsubsection{CU01 : S'authentifier}
+
+% Content here
+
+\subsubsection{CU02 : Créer un projet depuis une URL GitHub}
+
+% Content here
+
+\subsubsection{CU03 : Configurer et déclencher un déploiement}
+
+% Content here
+
+\subsubsection{CU04 : Consulter les logs de build en temps réel}
+
+% Content here
+
+\subsubsection{CU05 : Gérer les variables d'environnement}
+
+% Content here
+
+\subsubsection{CU06 : Configurer le CI/CD}
+
+% Content here
+
+\subsubsection{CU07 : Gérer les membres d'une équipe}
+
+% Content here
+
+\subsubsection{CU08 : Supprimer un projet}
+
+% Content here
+
+\subsubsection{CU09 : Administrer la plateforme}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Tableau récapitulatif des cas d'utilisation (ID, nom, acteur principal, priorité)}
+	\label{tab:2.3}
+\end{table}
+
+\section{Modélisation des classes et données}
+
+\subsection{Diagramme de classes}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de classes UML complet (User, Project, Deployment, DeploymentStep, EnvVar, Plan, GitHubInstallation, GitHubRepository, ActivityLog, Notification, Domain)}
+	\label{fig:2.2}
+\end{figure}
+
+\subsection{Modèle Entité-Association}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme Entité-Association de la base de données PostgreSQL avec cardinalités}
+	\label{fig:2.3}
+\end{figure}
+
+\subsection{Description des entités principales}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Description de l'entité User (attributs, types, contraintes)}
+	\label{tab:2.4}
+\end{table}
+
+\begin{table}[h]
+	\centering
+	\caption{Description de l'entité Project}
+	\label{tab:2.5}
+\end{table}
+
+\begin{table}[h]
+	\centering
+	\caption{Description de l'entité Deployment}
+	\label{tab:2.6}
+\end{table}
+
+\section{Modélisation comportementale}
+
+\subsection{Diagrammes de séquence}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de séquence : Authentification (NextJS → NestJS → PostgreSQL → JWT)}
+	\label{fig:2.4}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de séquence : Déclenchement d'un déploiement (Frontend → NestJS → Argo Workflows → Build Job → Registry → Helm → DNS)}
+	\label{fig:2.5}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de séquence : Streaming des logs en temps réel (Builder Pod → Promtail → Loki → NestJS SSE → Browser)}
+	\label{fig:2.6}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme de séquence : Webhook CI/CD GitHub Push (GitHub → NestJS → DeploymentsService → Argo Workflows)}
+	\label{fig:2.7}
+\end{figure}
+
+\subsection{Diagrammes d'activité}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme d'activité du pipeline de déploiement complet (Build → Provision → DNS → Live)}
+	\label{fig:2.8}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme d'activité de la détection de framework et génération du plan Railpack}
+	\label{fig:2.9}
+\end{figure}
+
+\subsection{Diagramme d'états}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Diagramme d'états d'un Deployment (QUEUED → BUILDING → PROVISIONING → CONFIGURING\_DNS → LIVE / FAILED / CANCELLED)}
+	\label{fig:2.10}
+\end{figure}
+
+\section{Architecture technique globale}
+
+\subsection{Vue d'ensemble de l'architecture}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma d'architecture générale de Hostifer : couche client (NextJS), couche API (NestJS), couche orchestration (Argo Workflows), couche infrastructure (Kubernetes, Buildkit, Registry, Loki, Vault), couche réseau (Traefik, Cloudflare, cert-manager)}
+	\label{fig:2.11}
+\end{figure}
+
+\subsection{Architecture multi-tenant}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma d'isolation multi-tenant : Namespace par projet, NetworkPolicy bloquant le trafic inter-tenant, ressources quotas par plan}
+	\label{fig:2.12}
+\end{figure}
+
+\begin{table}[h]
+	\centering
+	\caption{Ressources allouées par profil d'allocation (CPU request/limit, RAM request/limit, stockage, pods max). Les métriques d'autoscaling supportées et les comportements HPA/VPA autorisés par profil sont indiqués dans la grille}
+	\label{tab:2.7}
+\end{table}
+
+\subsection{Architecture du pipeline de build}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma du pipeline de build (Job Kubernetes Go binary → Railpack CLI → Buildkitd Deployment → Registry interne)}
+	\label{fig:2.13}
+\end{figure}
+
+\subsection{Architecture de collecte des logs}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma de la chaîne de collecte et streaming des logs (Pod stdout → Promtail DaemonSet → Loki → SSE → Browser)}
+	\label{fig:2.14}
+\end{figure}
+
+\subsection{Architecture de gestion des secrets}
+
+% Content here
+
+\begin{figure}[h]
+	\centering
+	\caption{Schéma de gestion des secrets avec HashiCorp Vault et External Secrets Operator}
+	\label{fig:2.15}
+\end{figure}
+
+\section{Choix technologiques}
+
+\subsection{Justification des technologies retenues}
+
+% Content here
+
+\begin{table}[h]
+	\centering
+	\caption{Tableau des choix technologiques (composant, technologie retenue, alternatives considérées, justification du choix)}
+	\label{tab:2.8}
+\end{table}

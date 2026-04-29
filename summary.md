@@ -84,13 +84,13 @@ Description de tous les acteurs interagissant avec le système : Développeur (u
 
 #### 2.1.2 Besoins fonctionnels
 
-Liste structurée de toutes les fonctionnalités attendues : authentification, gestion de projets, déploiement, logs, variables d'environnement, CI/CD, facturation, administration.
+Liste structurée de toutes les fonctionnalités attendues : authentification, gestion de projets, déploiement, logs, variables d'environnement, CI/CD, administration.
 
 **Tableau 2.1** — Table des besoins fonctionnels (ID, description, priorité MoSCoW, acteur concerné).
 
 #### 2.1.3 Besoins non fonctionnels
 
-Performance (temps de déploiement < 5 min), disponibilité (SLA 99.9% plans Enterprise), sécurité (isolation réseau, chiffrement), scalabilité (multi-tenant), conformité réglementaire.
+Performance (temps de déploiement < 5 min), disponibilité (SLA 99.9% plans Enterprise), sécurité (isolation réseau, chiffrement), scalabilité (multi-tenant). Le système doit supporter l'autoscaling dynamique au niveau des pods et du cluster : mise à l'échelle horizontale des pods via HPA (Horizontal Pod Autoscaler), ajustement vertical automatique des ressources via VPA (Vertical Pod Autoscaler) et mise à l'échelle du cluster via des pools de nœuds et un Cluster Autoscaler. Critères mesurables : capacité à augmenter de N réplicas en T secondes sous charge, ajustement de requests/limits par VPA sans interruption significative et ajout/suppression automatique de nœuds de travail selon l'utilisation des ressources.
 
 **Tableau 2.2** — Table des besoins non fonctionnels (ID, catégorie, critère de satisfaction mesurable).
 
@@ -160,7 +160,7 @@ Tableau descriptif pour chaque entité principale : attributs, types, contrainte
 
 #### 2.4.3 Diagramme d'états
 
-**Figure 2.10** — Diagramme d'états d'un Deployment (QUEUED → BUILDING → PROVISIONING → CONFIGURING\_DNS → LIVE / FAILED / CANCELLED).
+**Figure 2.10** — Diagramme d'états d'un Deployment (QUEUED → BUILDING → PROVISIONING → CONFIGURING_DNS → LIVE / FAILED / CANCELLED).
 
 ---
 
@@ -174,9 +174,16 @@ Tableau descriptif pour chaque entité principale : attributs, types, contrainte
 
 Description du modèle Silo : un Namespace Kubernetes par tenant, isolation via NetworkPolicy, quotas via ResourceQuota et LimitRange.
 
+Le modèle intègre l'autoscaling multi-couche :
+
+- Pods : HPA (Horizontal Pod Autoscaler) pour adapter le nombre de réplicas selon des métriques standards (CPU/mémoire) ou personnalisées (Prometheus Adapter), et VPA (Vertical Pod Autoscaler) pour recommander ou appliquer des ajustements de `requests`/`limits` afin d'optimiser l'utilisation des ressources.
+- Cluster : utilisation de pools de nœuds (node pools) classés par profil (small/medium/large) et d'un Cluster Autoscaler pour ajouter/supprimer des nœuds automatiquement lorsque la demande dépasse la capacité disponible.
+
+Les ResourceQuota et LimitRange sont conçus pour fonctionner avec HPA/VPA — en définissant des bornes minimales et maximales afin d'éviter des oscillations de scalabilité et de préserver l'isolation multi-tenant. Les charts Helm prévoient des annotations et des selectors permettant d'affecter des Pods à des node pools spécifiques selon le profil d'allocation.
+
 **Figure 2.12** — Schéma d'isolation multi-tenant : Namespace par projet, NetworkPolicy bloquant le trafic inter-tenant, ressources quotas par plan.
 
-**Tableau 2.7** — Ressources allouées par plan tarifaire (CPU request/limit, RAM request/limit, stockage, pods max).
+**Tableau 2.7** — Ressources allouées par profil d'allocation (CPU request/limit, RAM request/limit, stockage, pods max). Les métriques d'autoscaling supportées et les comportements HPA/VPA autorisés par profil sont indiqués dans la grille.
 
 #### 2.5.3 Architecture du pipeline de build
 
@@ -256,6 +263,10 @@ Description de l'endpoint SSE NestJS utilisant `@Sse()`, interrogation de Loki `
 
 Description de l'intégration HashiCorp Vault : authentification Kubernetes, écriture/lecture KV v2, synchronisation ESO.
 
+#### 3.2.6 Versioning et rollback des déploiements
+
+Description de la conservation de l'historique des déploiements, de l'identification des versions précédentes et du retour arrière vers un état stable en cas d'échec.
+
 ---
 
 ### 3.3 Implémentation du builder Go
@@ -264,13 +275,17 @@ Description de l'intégration HashiCorp Vault : authentification Kubernetes, éc
 
 **Figure 3.4** — Arborescence du projet Go builder (main.go, git.go, railpack.go, buildkit.go, logger.go).
 
-#### 3.3.2 Détection de framework et génération du plan Railpack
+#### 3.3.2 Détection de framework
+
+Description de l'analyse automatique du dépôt Git pour identifier le framework utilisé à partir des fichiers présents, de la structure du projet et de quelques indices de configuration.
+
+#### 3.3.3 Génération du plan Railpack
 
 Description de la génération du plan via CLI Railpack, patch du plan JSON pour UID 1000, injection de `NODE_OPTIONS` pour la gestion mémoire Node.js.
 
 **Figure 3.5** — Extrait du plan railpack-plan.json généré pour une application Node.js avec les modifications appliquées.
 
-#### 3.3.3 Construction et push de l'image via Buildkit
+#### 3.3.4 Construction et push de l'image via Buildkit
 
 Description de la connexion au daemon Buildkit, résolution du frontend Railpack gateway, streaming des logs vertex par vertex.
 
@@ -280,7 +295,14 @@ Description de la connexion au daemon Buildkit, résolution du frontend Railpack
 
 #### 3.4.1 Chart Helm multi-tenant
 
-Description des ressources créées par le chart Helm pour chaque tenant : Namespace, ResourceQuota, LimitRange, NetworkPolicy x4, ServiceAccount, Deployment, Service, IngressRoute, ExternalSecret.
+Description des ressources créées par le chart Helm pour chaque tenant : Namespace, ResourceQuota, LimitRange, NetworkPolicy x4, ServiceAccount, Deployment, Service, IngressRoute, ExternalSecret. Le chart inclut en option :
+
+- Templates et valeurs pour générer un `HorizontalPodAutoscaler` par workload (HPA) et annotations pour `VerticalPodAutoscaler` (VPA) où approprié.
+- Annotations pour le Cluster Autoscaler et `nodeSelector`/`nodeAffinity` pour cibler des node pools dédiés aux différents plans tarifaires.
+- Configurations par défaut évitant que VPA ne perturbe les updates critiques (modes `recommendation` vs `auto`) et limites minimales/maximales compatibles avec les ResourceQuota.
+- Gestion optionnelle de `PersistentVolumeClaim` pour les applications stateful afin de conserver les données entre redéploiements.
+
+Ces ajouts rendent le chart prêt pour un environnement où les pods peuvent monter en charge automatiquement et où le cluster peut évoluer horizontalement via des node pools.
 
 **Figure 3.6** — Extrait du template NetworkPolicy illustrant l'isolation inter-tenant et l'autorisation Traefik uniquement.
 
@@ -292,7 +314,15 @@ Description du WorkflowTemplate à trois étapes séquentielles (Build → Provi
 
 #### 3.4.3 Configuration de l'observabilité (Loki + Promtail)
 
-Description de la configuration Promtail DaemonSet, relabeling pour attacher `build_id`, `tenant_id`, `log_type`, filtre `container="main"`.
+Description de la configuration Promtail DaemonSet, relabeling pour attacher `build_id`, `tenant_id`, `log_type`, filtre `container="main"`. Pour supporter l'autoscaling, une collecte métrique Prometheus est configurée (exporters, ServiceMonitors) afin que HPA puisse consommer des métriques personnalisées (par exemple latence, queue length, ou métriques d'applications). Les dashboards et alertes incluent des indicateurs d'efficacité d'autoscaling (latence de montée en charge, temps d'ajout de nœuds, taux d'échec lors des scalings).
+
+#### 3.4.4 Gestion des certificats TLS avec cert-manager
+
+Description de l'émission et du renouvellement automatiques des certificats TLS via cert-manager et Let's Encrypt, avec intégration aux ressources d'exposition réseau de la plateforme.
+
+#### 3.4.5 Collecte des métriques avec Prometheus
+
+Description de la collecte des métriques applicatives et Kubernetes via Prometheus afin d'alimenter les tableaux de bord, la supervision et les décisions d'autoscaling.
 
 ---
 
@@ -342,11 +372,15 @@ Validation que les NetworkPolicies empêchent effectivement la communication int
 
 #### 3.6.3 Tests de charge et performance
 
-Mesures de temps de déploiement de bout en bout, latence des logs SSE, consommation mémoire buildkitd sous charge simultanée.
+Mesures de temps de déploiement de bout en bout, latence des logs SSE, consommation mémoire buildkitd sous charge simultanée. Tests spécifiques d'autoscaling :
+
+- Validation du HPA : montée en charge d'une application (augmentation de la latence/CPU) et observation de l'augmentation du nombre de réplicas, temps de convergence et stabilité post-scale.
+- Validation du VPA : comportement en mode `recommendation` puis en mode `auto` sur des scénarios de charge progressive, vérification des recommandations de `requests`/`limits` et impact sur les performances.
+- Validation du Cluster Autoscaler et node pools : simulation d'un pic nécessitant de nouveaux nœuds, vérification de l'ajout/suppression de nœuds, temps d'allocation et scheduling des pods nouvellement créés.
 
 **Figure 3.19** — Graphique du temps de déploiement moyen par framework (de la soumission du workflow à l'état LIVE).
 
-**Tableau 3.5** — Tableau de performance : temps de build moyen, latence SSE, consommation mémoire buildkitd pour 1, 3 et 5 builds simultanés.
+**Tableau 3.5** — Tableau de performance : temps de build moyen, latence SSE, consommation mémoire buildkitd pour 1, 3 et 5 builds simultanés, plus métriques d'autoscaling (temps de montée HPA, recommandations VPA, latence d'ajout de nœuds).
 
 #### 3.6.4 Tests de conformité réglementaire
 
@@ -368,7 +402,7 @@ Description honnête des défis techniques surmontés : compatibilité musl/glib
 
 #### 3.7.3 Perspectives d'évolution
 
-Fonctionnalités futures prévues : cold start avec KEDA, bases de données managées, stockage objet S3-compatible, migration vers DjezzyCloud pour la haute disponibilité, support des organisations GitHub.
+Fonctionnalités futures prévues : cold start avec KEDA, bases de données managées, stockage objet S3-compatible, amélioration de la haute disponibilité sur l'infrastructure actuelle, support des organisations GitHub.
 
 ---
 
