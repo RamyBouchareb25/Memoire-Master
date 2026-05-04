@@ -2,29 +2,170 @@
 
 \section{Recueil et spécification des besoins}
 
+La phase de recueil et de spécification des besoins constitue le fondement de toute démarche d'ingénierie logicielle rigoureuse. Elle permet d'établir un contrat clair entre les parties prenantes et l'équipe de développement, en formalisant les attentes fonctionnelles et les contraintes non fonctionnelles du système. Dans le cadre de Hostifer, cette phase revêt une importance particulière, car la plateforme doit répondre simultanément aux exigences d'une infrastructure multi-tenant à haute disponibilité, aux contraintes réglementaires algériennes, et aux attentes d'utilisabilité propres aux développeurs. Les besoins ont été recueillis par une analyse itérative combinant l'étude des solutions existantes (menée au chapitre précédent) et la modélisation des cas d'usage réels identifiés lors de la conception.
+
+% ------------------------------------------------------------
 \subsection{Identification des acteurs}
+% ------------------------------------------------------------
 
-% Content here
+Un acteur, au sens de la modélisation UML, représente toute entité externe qui interagit avec le système, qu'il s'agisse d'un être humain, d'un système tiers ou d'un composant logiciel automatisé \cite{booch-uml}. L'identification précise des acteurs est une étape préalable indispensable à la construction des diagrammes de cas d'utilisation, car elle délimite les frontières du système et clarifie les responsabilités de chaque intervenant.
 
+Pour Hostifer, cinq acteurs distincts ont été identifiés, chacun interagissant avec le système selon des modalités et des droits d'accès spécifiques.
+
+\textbf{Le Développeur} est l'acteur principal de la plateforme. Il s'agit du profil utilisateur central : un ingénieur logiciel, un freelance ou un membre d'une équipe produit souhaitant déployer et gérer des applications web sans administrer directement l'infrastructure sous-jacente. Le développeur interagit avec Hostifer via l'interface web (frontend Next.js) pour créer des projets, déclencher des déploiements, consulter les journaux de construction, gérer les variables d'environnement et configurer le pipeline d'intégration et de livraison continues (CI/CD).
+
+\textbf{L'Administrateur de la plateforme} est un acteur secondaire disposant de droits étendus sur l'ensemble du système. Il assure la supervision de l'infrastructure Kubernetes sous-jacente, gère les plans tarifaires, surveille la consommation des ressources par tenant, et intervient en cas d'incident de production. L'administrateur interagit principalement avec les outils d'observabilité (tableaux de bord Grafana, interface Argo Workflows) ainsi qu'avec les API d'administration exposées par le backend NestJS.
+
+\textbf{Le Système GitHub} est un acteur externe automatisé. Il interagit avec Hostifer via un mécanisme de webhook : à chaque événement \texttt{push} sur une branche configurée d'un dépôt GitHub, une requête HTTP \texttt{POST} est émise vers l'endpoint webhook du backend NestJS. Cet acteur déclenche ainsi automatiquement le pipeline CI/CD sans intervention humaine, permettant un déploiement continu à chaque mise à jour du code source.
+
+\textbf{Argo Workflows} constitue le moteur d'orchestration des pipelines de déploiement. En tant qu'acteur interne automatisé, il reçoit les soumissions de workflows depuis le backend NestJS, exécute séquentiellement les étapes \textit{Build}, \textit{Provision} et \textit{DNS}, et communique l'état d'avancement de chaque étape. Argo Workflows interagit directement avec l'API Kubernetes pour créer les ressources nécessaires à l'exécution des jobs de construction et au provisionnement des tenants.
+
+\textbf{L'API Kubernetes} représente le point d'entrée de l'infrastructure d'exécution. Elle est sollicitée par le backend NestJS et par Argo Workflows pour la création, la mise à jour et la suppression des ressources Kubernetes associées à chaque tenant~: \textit{Namespace}, \textit{Deployment}, \textit{Service}, \textit{NetworkPolicy}, \textit{ResourceQuota} et \textit{HorizontalPodAutoscaler}. Elle constitue le substrat technique sur lequel repose l'ensemble des opérations de la plateforme \cite{k8s-concepts}.
+
+% ------------------------------------------------------------
 \subsection{Besoins fonctionnels}
+% ------------------------------------------------------------
 
-% Content here
+Les besoins fonctionnels décrivent l'ensemble des services que le système doit fournir à ses utilisateurs ainsi que les comportements attendus en réponse à des entrées spécifiques \cite{sommerville-se}. Ils ont été structurés en sept domaines fonctionnels cohérents avec les grands cas d'utilisation de la plateforme, et priorisés selon la méthode MoSCoW (\textit{Must have}, \textit{Should have}, \textit{Could have}, \textit{Won't have}) \cite{moscow-ieee}, qui permet d'aligner les efforts de développement sur les fonctionnalités à plus fort impact métier.
 
-\begin{table}[h]
-	\centering
-	\caption{Table des besoins fonctionnels (ID, description, priorité MoSCoW, acteur concerné)}
-	\label{tab:2.1}
+\textbf{Authentification et gestion des comptes.} La plateforme doit permettre à tout utilisateur de s'inscrire et de s'authentifier, soit par une paire identifiant/mot de passe avec hachage sécurisé, soit par le protocole OAuth 2.0 délégué à GitHub. Le système doit émettre et renouveler des jetons d'accès JWT (\textit{JSON Web Token}) de manière transparente, avec un mécanisme de rotation des jetons de rafraîchissement afin de maintenir la sécurité des sessions longues.
+
+\textbf{Gestion des projets.} Un développeur authentifié doit pouvoir créer un projet en fournissant l'URL d'un dépôt GitHub, configurer ses paramètres (région de déploiement, plan tarifaire associé), consulter la liste de ses projets avec leur statut en temps réel, et supprimer un projet avec déprovisionning complet des ressources Kubernetes associées.
+
+\textbf{Déploiement d'applications.} La fonctionnalité centrale de la plateforme consiste à déployer automatiquement une application depuis un dépôt GitHub vers l'infrastructure Kubernetes. Ce processus doit couvrir la détection automatique du framework utilisé, la construction de l'image conteneur via Railpack et Buildkit, son stockage dans un registre interne, et son déploiement via un chart Helm dédié par tenant. L'utilisateur doit avoir accès à l'historique complet des déploiements et pouvoir effectuer un retour arrière vers une version stable antérieure.
+
+\textbf{Journalisation en temps réel.} Pendant et après le processus de construction, l'utilisateur doit pouvoir consulter les journaux de build en continu, sans rechargement de page, via une connexion SSE (\textit{Server-Sent Events}). Les journaux doivent être indexés et persistés dans Loki afin d'être consultables a posteriori.
+
+\textbf{Gestion des variables d'environnement.} La plateforme doit permettre la création, la mise à jour et la suppression de variables d'environnement associées à chaque projet. Les valeurs sensibles (secrets) doivent être stockées de manière chiffrée dans HashiCorp Vault et jamais exposées en clair dans l'interface ou dans les journaux.
+
+\textbf{Intégration et livraison continues (CI/CD).} Le système doit permettre la configuration d'un pipeline CI/CD automatique, déclenché par un événement \texttt{push} GitHub via webhook. L'utilisateur doit pouvoir activer ou désactiver ce comportement par projet, et choisir la branche de déploiement cible.
+
+\textbf{Administration de la plateforme.} L'administrateur doit disposer d'une interface permettant de visualiser l'ensemble des tenants actifs, leur consommation de ressources, et les workflows Argo Workflows en cours d'exécution. Il doit pouvoir intervenir sur les ressources Kubernetes directement depuis les outils d'observabilité intégrés.
+
+Le tableau~\ref{tab:besoins-fonctionnels} synthétise l'ensemble des besoins fonctionnels avec leur identifiant, leur description, leur priorité MoSCoW et l'acteur concerné.
+
+\begin{table}[htbp]
+\caption{Tableau des besoins fonctionnels}
+\label{tab:besoins-fonctionnels}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{1.1cm}|p{5.5cm}|p{2cm}|p{3.5cm}|}
+\hline
+\textbf{ID} & \textbf{Description} & \textbf{Priorité} & \textbf{Acteur concerné} \\
+\hline
+BF-01 & S'inscrire avec email/mot de passe & Must have & Développeur \\
+\hline
+BF-02 & S'authentifier via OAuth GitHub & Must have & Développeur \\
+\hline
+BF-03 & Émettre et renouveler des jetons JWT & Must have & Système (NestJS) \\
+\hline
+BF-04 & Créer un projet depuis une URL GitHub & Must have & Développeur \\
+\hline
+BF-05 & Consulter la liste des projets et leurs statuts & Must have & Développeur \\
+\hline
+BF-06 & Déclencher manuellement un déploiement & Must have & Développeur \\
+\hline
+BF-07 & Détecter automatiquement le framework applicatif & Must have & Système (Builder Go) \\
+\hline
+BF-08 & Construire l'image conteneur via Buildkit/Railpack & Must have & Système (Argo Workflows) \\
+\hline
+BF-09 & Déployer l'application via chart Helm & Must have & Système (Argo Workflows) \\
+\hline
+BF-10 & Consulter les journaux de build en temps réel (SSE) & Must have & Développeur \\
+\hline
+BF-11 & Gérer les variables d'environnement (CRUD) & Must have & Développeur \\
+\hline
+BF-12 & Stocker les secrets dans HashiCorp Vault & Must have & Système (NestJS/ESO) \\
+\hline
+BF-13 & Configurer le déploiement automatique sur push GitHub & Should have & Développeur \\
+\hline
+BF-14 & Consulter l'historique des déploiements & Should have & Développeur \\
+\hline
+BF-15 & Effectuer un retour arrière vers une version précédente & Should have & Développeur \\
+\hline
+BF-16 & Supprimer un projet avec déprovisionning Kubernetes & Must have & Développeur \\
+\hline
+BF-17 & Gérer les membres d'une équipe projet & Should have & Développeur \\
+\hline
+BF-18 & Administrer les tenants et ressources (interface admin) & Must have & Administrateur \\
+\hline
+BF-19 & Visualiser les workflows Argo en cours & Should have & Administrateur \\
+\hline
+BF-20 & Configurer un domaine personnalisé & Could have & Développeur \\
+\hline
+\end{tabular}
 \end{table}
 
+% ------------------------------------------------------------
 \subsection{Besoins non fonctionnels}
+% ------------------------------------------------------------
 
-% Content here
+Les besoins non fonctionnels définissent les contraintes de qualité auxquelles le système doit se conformer, indépendamment des fonctionnalités qu'il offre. Ils couvrent des attributs tels que la performance, la disponibilité, la sécurité et la scalabilité, et constituent souvent les critères les plus déterminants pour l'expérience utilisateur réelle et la viabilité opérationnelle de la plateforme \cite{sommerville-se}. Dans le contexte d'une plateforme PaaS multi-tenant comme Hostifer, ces exigences sont particulièrement critiques, car une dégradation dans l'un de ces domaines peut simultanément affecter l'ensemble des tenants hébergés sur l'infrastructure partagée.
 
-\begin{table}[h]
-	\centering
-	\caption{Table des besoins non fonctionnels (ID, catégorie, critère de satisfaction mesurable)}
-	\label{tab:2.2}
-\end{table}
+\textbf{Performance.} Le temps de déploiement de bout en bout, mesuré depuis la soumission du workflow Argo jusqu'au passage de l'application à l'état \texttt{LIVE}, ne doit pas excéder cinq minutes pour les frameworks courants (Express, NestJS, Next.js, Flask) sur un dépôt de taille standard. La latence de streaming des journaux de build via SSE doit rester inférieure à deux secondes entre l'émission d'un message par le pod de construction et son affichage dans le navigateur de l'utilisateur.
+
+\textbf{Disponibilité.} La plateforme cible un SLA (\textit{Service Level Agreement}) de disponibilité de 99,5\% pour les plans Standard, et de 99,9\% pour les plans Enterprise, ce qui correspond à une indisponibilité maximale tolérée respectivement de 43,8 heures et 8,76 heures par an. Ces objectifs imposent une architecture résiliente aux défaillances de composants individuels, notamment via la redondance des pods applicatifs et la gestion des interruptions planifiées.
+
+\textbf{Sécurité.} L'isolation réseau entre tenants doit être garantie par des \textit{NetworkPolicies} Kubernetes bloquant tout trafic inter-namespace non autorisé \cite{multitenant-cloud}. Les secrets applicatifs ne doivent jamais transiter en clair : leur cycle de vie complet (création, stockage, injection dans les pods) est pris en charge par HashiCorp Vault et l'opérateur External Secrets. Les communications entre l'utilisateur et la plateforme doivent être intégralement chiffrées via TLS, avec émission et renouvellement automatiques des certificats assurés par cert-manager et Let's Encrypt. L'accès aux ressources Kubernetes est contrôlé par des politiques RBAC (\textit{Role-Based Access Control}) granulaires, limitant strictement les permissions de chaque composant.
+
+\textbf{Scalabilité et autoscaling.} La plateforme doit supporter une montée en charge dynamique à trois niveaux distincts \cite{k8s-autoscaling}, correspondant aux trois couches de l'architecture Kubernetes.
+
+Au niveau des pods, le \textit{Horizontal Pod Autoscaler} (HPA) ajuste automatiquement le nombre de réplicas d'un déploiement en fonction de métriques observées telles que l'utilisation CPU ou mémoire, ou de métriques applicatives personnalisées exposées via Prometheus Adapter \cite{k8s-hpa}. Le HPA est configuré avec des seuils de tolérance adaptés afin d'éviter les phénomènes d'oscillation (\textit{flapping}) dus à des variations métrique transitoires. En complément, le \textit{Vertical Pod Autoscaler} (VPA) opère sur la dimension verticale en ajustant les champs \texttt{requests} et \texttt{limits} des conteneurs sur la base de l'historique de consommation réelle \cite{kubecost-vpa}. En mode \texttt{recommendation}, il fournit des suggestions sans perturber les pods en cours d'exécution ; en mode \texttt{auto}, il peut procéder à l'éviction et au redémarrage des pods pour appliquer les nouvelles valeurs. Afin d'éviter tout conflit avec le HPA sur les mêmes métriques, le VPA est configuré pour opérer sur des métriques distinctes lorsque les deux mécanismes coexistent \cite{k8s-hpa-vpa-conflict}.
+
+Au niveau du cluster, des \textit{node pools} classés par profil de ressources (small, medium, large) permettent d'affecter les workloads aux nœuds les mieux dimensionnés selon le plan tarifaire du tenant. Le \textit{Cluster Autoscaler} surveille en permanence l'état des pods en attente de scheduling (\textit{Pending}) et des nœuds sous-utilisés, ajoutant de nouveaux nœuds lorsque la demande dépasse la capacité disponible et en retirant lorsque des nœuds restent inactifs sur une période prolongée \cite{k8s-autoscaling}.
+
+Les \textit{ResourceQuotas} et les \textit{LimitRanges} définis par namespace délimitent les bornes minimales et maximales de consommation de ressources par tenant. Ces contraintes coopèrent avec le HPA et le VPA en empêchant les recommandations d'autoscaling de dépasser les quotas alloués par plan, garantissant ainsi la préservation de l'isolation multi-tenant même en période de forte charge \cite{microsoft-tenancy}.
+
+\textbf{Maintenabilité.} L'architecture modulaire du backend NestJS (un module par domaine fonctionnel), l'utilisation de charts Helm paramétrables pour le provisionnement des tenants, et la séparation stricte des composants (frontend, backend, builder, infrastructure) doivent permettre la mise à jour et le débogage indépendants de chaque couche du système sans affecter les tenants en production.
+
+Le tableau~\ref{tab:besoins-non-fonctionnels} récapitule l'ensemble des besoins non fonctionnels avec leurs critères de satisfaction mesurables.
+
+\small
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{|p{1.1cm}|p{2.3cm}|>{\raggedright\arraybackslash}p{4.8cm}|>{\raggedright\arraybackslash}p{4cm}|}
+\caption{Tableau des besoins non fonctionnels}\label{tab:besoins-non-fonctionnels}\\
+\hline
+	extbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
+\hline
+\endfirsthead
+
+\hline
+	extbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
+\hline
+\endhead
+
+BNF-01 & Performance & Temps de déploiement de bout en bout & $\leq$ 5 min pour frameworks standard \\
+\hline
+BNF-02 & Performance & Latence de streaming des logs SSE & $\leq$ 2 s entre émission pod et affichage navigateur \\
+\hline
+BNF-03 & Disponibilité & SLA plan Standard & $\geq$ 99,5\% (43,8 h d'indisponibilité/an max.) \\
+\hline
+BNF-04 & Disponibilité & SLA plan Enterprise & $\geq$ 99,9\% (8,76 h d'indisponibilité/an max.) \\
+\hline
+BNF-05 & Sécurité & Isolation réseau inter-tenant & Zéro trafic inter-namespace validé par NetworkPolicy \\
+\hline
+BNF-06 & Sécurité & Chiffrement des secrets & Secrets stockés dans Vault KV v2, jamais en clair \\
+\hline
+BNF-07 & Sécurité & Chiffrement des communications & TLS obligatoire, certificats émis par cert-manager \\
+\hline
+BNF-08 & Sécurité & Contrôle d'accès & RBAC Kubernetes par namespace et par composant \\
+\hline
+BNF-09 & Scalabilité & Autoscaling horizontal des pods (HPA) & Augmentation du nombre de réplicas en $\leq$ 30 s sous charge CPU $>$ 70\% \\
+\hline
+BNF-10 & Scalabilité & Autoscaling vertical des pods (VPA) & Recommandations \texttt{requests}/\texttt{limits} appliquées sans interruption en mode \texttt{recommendation} \\
+\hline
+BNF-11 & Scalabilité & Autoscaling du cluster (Cluster Autoscaler) & Ajout/suppression automatique de nœuds en $\leq$ 3 min selon utilisation des ressources \\
+\hline
+BNF-12 & Scalabilité & Isolation des quotas multi-tenant & ResourceQuota empêche tout dépassement du plan tarifaire, même en cas de scaling \\
+\hline
+BNF-13 & Maintenabilité & Modularité du backend & Mise à jour d'un module NestJS sans impact sur les autres \\
+\hline
+BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionnement complet d'un nouveau tenant via chart Helm sans modification manuelle \\
+\hline
+\end{longtable}
+\normalsize
 
 \section{Modélisation UML des cas d'utilisation}
 
@@ -34,6 +175,7 @@
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter2/diagrams/use-case.png}
 	\caption{Diagramme de cas d'utilisation global montrant tous les acteurs et leurs interactions avec le système (authentification, déploiement, gestion des projets, administration, CI/CD, logs)}
 	\label{fig:2.1}
 \end{figure}
@@ -92,6 +234,7 @@
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter2/diagrams/class-diagram.png}
 	\caption{Diagramme de classes UML complet (User, Project, Deployment, DeploymentStep, EnvVar, Plan, GitHubInstallation, GitHubRepository, ActivityLog, Notification, Domain)}
 	\label{fig:2.2}
 \end{figure}
@@ -102,6 +245,7 @@
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter2/diagrams/Entite-relation.png}
 	\caption{Diagramme Entité-Association de la base de données PostgreSQL avec cardinalités}
 	\label{fig:2.3}
 \end{figure}

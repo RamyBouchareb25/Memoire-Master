@@ -4,38 +4,101 @@
 
 \subsection{Présentation des modèles IaaS, PaaS, SaaS}
 
-% Content here
+Le cloud computing repose sur trois grands modèles de service qui se distinguent par la répartition des responsabilités entre le fournisseur d'infrastructure et le client. Ces modèles constituent une progression logique allant de la simple mise à disposition de ressources brutes jusqu'à la consommation d'une plateforme de déploiement entièrement gérée.
+
+\paragraph{Infrastructure as a Service (IaaS)}
+Le modèle IaaS fournit au client les ressources matérielles virtualisées essentielles : machines virtuelles, stockage, réseau et pare-feu. Le fournisseur administre l'infrastructure physique, tandis que le client conserve la maîtrise du système d'exploitation, du middleware, des runtime applicatifs et des applications elles-mêmes. Ce modèle offre une forte flexibilité, mais demande également davantage de compétences d'administration.
+
+\paragraph{Platform as a Service (PaaS)}
+Le modèle PaaS se situe à un niveau d'abstraction supérieur. Le fournisseur prend en charge non seulement l'infrastructure, mais aussi une grande partie de la pile logicielle nécessaire au déploiement : environnement d'exécution, orchestration, mise à l'échelle, supervision et parfois intégration continue. Le développeur se concentre alors sur le code applicatif, la configuration du projet et les variables d'environnement. Le PaaS réduit fortement la complexité opérationnelle et accélère le passage du développement à la production.
+
+\paragraph{Software as a Service (SaaS)}
+Le modèle SaaS correspond à l'exposition d'une application complète prête à l'emploi. L'utilisateur final consomme directement le service via une interface web ou une API, sans gérer ni l'infrastructure ni la plateforme sous-jacente. Ce modèle maximise la simplicité d'usage, mais laisse peu de contrôle sur l'environnement d'exécution et la personnalisation technique.
+
+\paragraph{Différences essentielles}
+La différence principale entre ces trois approches réside dans le niveau de responsabilité confié au client. En IaaS, le client gère encore une large part de l'exploitation technique. En PaaS, il se concentre surtout sur l'application. En SaaS, il n'administre plus l'environnement de déploiement et se limite à l'utilisation du service.
+
+\paragraph{Positionnement de Hostifer}
+Hostifer s'inscrit clairement dans la catégorie PaaS. La plateforme ne se contente pas de fournir des serveurs virtuels : elle automatise le déploiement d'applications à partir d'un dépôt GitHub, orchestre la construction des images, provisionne l'environnement Kubernetes, configure le routage réseau et expose l'application en ligne. L'utilisateur n'a pas à gérer les nœuds, les pods, les manifests Kubernetes ou les détails du runtime. Son rôle est centré sur le projet applicatif, la configuration du build et les secrets nécessaires au déploiement. Cette approche correspond précisément à la promesse d'un PaaS moderne.
+
+\paragraph{Cas d'usage}
+L'IaaS est adapté aux équipes qui souhaitent un contrôle fin de leur infrastructure ou qui exécutent des charges de travail très spécifiques. Le PaaS convient aux développeurs et aux startups qui veulent publier rapidement une application web sans mobiliser une équipe d'exploitation dédiée. Le SaaS vise les utilisateurs qui cherchent un service immédiatement utilisable, comme une messagerie, un CRM ou un outil de collaboration.
 
 \begin{figure}[h]
-	\centering
-	\caption{Pyramide des modèles de service cloud (IaaS / PaaS / SaaS) avec exemples de plateformes pour chaque niveau}
-	\label{fig:1.1}
+    \centering
+    \includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/modeles-cloud.png}
+    \caption{Pyramide des modèles de service cloud (IaaS / PaaS / SaaS) avec exemples de plateformes pour chaque niveau}
+    \label{fig:1.1}
 \end{figure}
 
 \begin{table}[h]
-	\centering
-	\caption{Comparaison des responsabilités client/fournisseur dans les trois modèles}
-	\label{tab:1.1}
+    \centering
+    \caption{Comparaison des responsabilités client/fournisseur dans les trois modèles}
+    \label{tab:1.1}
+    \begin{tabular}{p{3.5cm} p{3.8cm} p{3.8cm} p{3.8cm}}
+        \hline
+        \textbf{Critère} & \textbf{IaaS} & \textbf{PaaS} & \textbf{SaaS} \\
+        \hline
+        Infrastructure physique & Fournisseur & Fournisseur & Fournisseur \\
+        \hline
+        Système d'exploitation & Client & Fournisseur & Fournisseur \\
+        \hline
+        Plateforme d'exécution / middleware & Client & Fournisseur & Fournisseur \\
+        \hline
+        Application & Client & Client & Fournisseur \\
+        \hline
+        Données et configuration métier & Client & Client & Client / partiellement fournisseur selon le service \\
+        \hline
+    \end{tabular}
 \end{table}
 
 \section{L'orchestration de conteneurs — Docker et Kubernetes}
 
 \subsection{La conteneurisation avec Docker}
 
-% Content here
+La conteneurisation est une approche qui permet d'encapsuler une application avec toutes ses dépendances dans une unité légère, portable et isolée appelée conteneur. Contrairement à une machine virtuelle, un conteneur partage le noyau du système hôte tout en maintenant un environnement d'exécution cohérent pour l'application. Cette propriété facilite le déploiement, réduit les écarts entre les environnements de développement et de production, et améliore la reproductibilité des applications.
+
+Docker s'est imposé comme l'outil de référence pour la création, l'exécution et la distribution de conteneurs. Il permet de définir une image à partir d'un \textit{Dockerfile}, de construire cette image de manière reproductible, puis de lancer un ou plusieurs conteneurs à partir de celle-ci. Dans un contexte applicatif moderne, Docker constitue donc la brique de base qui transforme une application en artefact déployable.
+
+Cependant, à mesure que le nombre de conteneurs augmente, leur gestion manuelle devient difficile. Il devient nécessaire d'automatiser le déploiement, la montée en charge, la mise à jour progressive, la résilience et l'exposition réseau des applications. C'est précisément ce rôle qu'assure Kubernetes.
 
 \subsection{Kubernetes comme standard d'orchestration}
 
-% Content here
+Kubernetes est aujourd'hui le standard dominant pour l'orchestration de conteneurs. Il fournit un plan de contrôle capable de piloter un ensemble de nœuds de travail, de planifier les conteneurs, de maintenir l'état désiré des applications et de les faire évoluer automatiquement selon la charge. Là où Docker se concentre sur l'emballage et l'exécution d'un conteneur, Kubernetes gère le cycle de vie complet d'applications conteneurisées à grande échelle.
+
+\paragraph{Pod}
+Le Pod est l'unité de base de déploiement dans Kubernetes. Il regroupe un ou plusieurs conteneurs partageant le même réseau, le même stockage temporaire et le même cycle de vie. Dans la majorité des cas, un Pod contient un seul conteneur applicatif, mais le modèle permet aussi d'associer des conteneurs auxiliaires pour des tâches de supervision ou de synchronisation.
+
+\paragraph{Namespace}
+Un Namespace permet de segmenter logiquement les ressources du cluster. Il sert à isoler des environnements, des équipes ou des clients différents au sein d'une même infrastructure Kubernetes. Dans un contexte multi-tenant, le Namespace constitue une première couche d'isolation organisationnelle et opérationnelle.
+
+\paragraph{Deployment}
+Le Deployment décrit l'état souhaité d'une application et pilote la création, la mise à jour et le redémarrage des Pods associés. Il permet notamment les mises à jour progressives, les retours arrière et la gestion déclarative du nombre de réplicas. Pour une plateforme PaaS, le Deployment est essentiel car il automatise l'exécution stable des applications déployées.
+
+\paragraph{Service}
+Un Service fournit un point d'accès stable vers un ensemble de Pods dont l'adresse peut changer au fil du temps. Il joue un rôle de façade réseau et permet la découverte de service à l'intérieur du cluster ou depuis l'extérieur, selon le type de Service utilisé. Il découple ainsi les consommateurs d'une application de l'instabilité des Pods sous-jacents.
+
+\paragraph{Ingress}
+L'Ingress définit des règles d'exposition HTTP/HTTPS vers les services internes du cluster. Il permet de router les requêtes en fonction du nom de domaine, du chemin d'URL ou d'autres critères applicatifs. Associé à un contrôleur Ingress, il constitue la couche d'entrée réseau principale pour exposer les applications web de manière contrôlée.
+
+\paragraph{ResourceQuota}
+Le ResourceQuota fixe des limites globales sur les ressources consommées dans un Namespace : CPU, mémoire, nombre de Pods, volume de stockage ou autres objets Kubernetes. Il empêche qu'un projet n'épuise les capacités du cluster et permet de faire respecter les contraintes d'un plan d'abonnement ou d'un tenant donné.
+
+\paragraph{NetworkPolicy}
+La NetworkPolicy définit les règles de communication réseau autorisées entre Pods, Namespaces ou sélecteurs précis. Elle permet de bloquer les flux non désirés et d'appliquer une véritable isolation réseau entre clients ou services. Dans une architecture multi-tenant, elle est indispensable pour garantir qu'un projet ne puisse pas communiquer avec les ressources d'un autre projet sans autorisation explicite.
+
+L'association de ces primitives permet de construire une plateforme d'hébergement moderne, automatisée et sécurisée. Kubernetes fournit l'abstraction nécessaire pour déployer, mettre à l'échelle et isoler les applications, tandis que Docker fournit le format d'exécution portable sur lequel repose la distribution des workloads.
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/Kubernetes_Architecture.png}
 	\caption{Architecture d'un cluster Kubernetes (Master node, Worker nodes, etcd, API Server)}
 	\label{fig:1.2}
 \end{figure}
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/pod_lifecycle.png}
 	\caption{Cycle de vie d'un Pod Kubernetes (Pending → Running → Succeeded/Failed)}
 	\label{fig:1.3}
 \end{figure}
@@ -44,12 +107,50 @@
 
 \subsection{Étude comparative des leaders mondiaux}
 
-% Content here
+Pour bien comprendre le positionnement de Hostifer, il est essentiel d'examiner les plateformes PaaS internationales qui dominent le marché. Ces solutions se sont établies comme les références dans le déploiement d'applications web et cloud-natives. Nous analysons ici six acteurs majeurs, chacun avec sa spécialité, ses forces et ses limitations particulières pour les développeurs algériens.
+
+\paragraph{Vercel}
+Vercel s'est construit autour de Next.js et excelle dans le déploiement d'applications frontend modernes et de Full-Stack JavaScript. Son modèle repose sur un git push automatisant le déploiement sur un CDN global distribué. Les technologies sous-jacentes incluent Cloudflare, Node.js et des runtimes propriétaires. La tarification suit le modèle pay-as-you-go basé sur les requêtes HTTP et le stockage. Vercel brille par sa simplicité et son intégration GitHub, mais elle demeure limitée aux écosystèmes Node.js/JavaScript. Limitation Algérie : pas de support des cartes bancaires locales, pas de serveurs en Afrique du Nord, latence importante pour les utilisateurs finaux algériens.
+
+\paragraph{Railway}
+Railway propose un modèle friendly où l'utilisateur pousse simplement du code et la plateforme détecte le langage et le framework. Elle supporte Node.js, Python, Go, Rust et bien d'autres. L'infrastructure repose sur Kubernetes, Nixpacks pour la détection, et Docker. La tarification est basée sur la consommation de ressources (CPU, mémoire, bande passante). Railway offre une excellente expérience développeur et un free tier généreux, mais reste orientée vers les petits projets et startups. Limitation Algérie : pas de région serveur locale, frais de change élevés, difficulté d'accès au paiement pour les startups algériennes sans compte bancaire international.
+
+\paragraph{Render}
+Render cible les développeurs cherchant simplicité et pricing transparent. Il supporte Node.js, Python, Go, Rust et offre un déploiement depuis Git avec reconstruction automatique. L'architecture s'appuie sur Docker et une orchestration propre. Les tarifs sont clairs et prévisibles, basés sur les ressources et la durée. Render fournit un free tier limité et des plans payants progressifs. Limitation Algérie : pas de infrastructure locale, carte de crédit internationale obligatoire, latence réseau vers l'Algérie non optimisée.
+
+\paragraph{Heroku}
+Heroku a longtemps été l'incontournable du PaaS grâce à sa simplicité (git push to deploy) et sa polyvalence. Heroku supporte une vingtaine de langages et frameworks. L'infrastructure repose sur AWS avec une couche d'abstraction propriétaire. La tarification était autrefois très accessible, mais Salesforce a drastiquement augmenté les coûts en 2022, rendant la plateforme désormais très chère pour les développeurs individuels et startups. Limitation Algérie : coûts prohibitifs, pas de data center régional, support de paiement limité aux carte étrangères.
+
+\paragraph{Fly.io}
+Fly.io innove avec son modèle de déploiement distribué : déployer une application dans plusieurs régions du monde simultanément pour minimiser la latence. Fly supporte Docker et tout langage/framework. L'infrastructure utilise une orchestration Kubernetes propriétaire. Les tarifs offrent un free tier modeste et un pay-as-you-go ensuite basé sur les ressources. Fly est idéal pour les applications distribuées, mais manque de datacenter en Afrique. Limitation Algérie : pas de point de présence régional (le plus proche est en Europe), latence toujours présente, infrastructure non-souveraine.
+
+\paragraph{Koyeb}
+Koyeb est une plateforme émergente française mettant l'accent sur la simplicité et la performance. Elle supporte Docker, serverless et une détection automatique des frameworks. Infrastructure sur AWS Europe. Tarification pay-as-you-go avec free tier. Koyeb cherche à se positionner comme alternative européenne simplifiée à Vercel/Netlify. Limitation Algérie : aucun datacenter en Afrique, fondée récemment donc moins mature que les autres, support utilisateur limité, frais bancaires internationaux.
+
+\paragraph{Synthèse et limitations communes}
+Toutes ces plateformes partagent plusieurs limitations majeures pour le contexte algérien. Premièrement, aucune n'opère d'infrastructure en Algérie ou en Afrique du Nord, forçant une latence significative et une dépendance vis-à-vis d'infrastructures étrangères. Deuxièmement, aucune n'accepte les cartes bancaires algériennes (CIB, EDAHABIA), limitant l'accès aux développeurs locaux. Troisièmement, la tarification en devises étrangères avec frais de change rend ces services plus chers pour les utilisateurs algériens. Enfin, aucune ne respecte explicitement la législation algérienne sur la souveraineté numérique (loi 25-11).
 
 \begin{table}[h]
 	\centering
 	\caption{Comparaison des plateformes PaaS internationales (hébergement, prix, frameworks supportés, CI/CD, free tier)}
 	\label{tab:1.2}
+	% \begin{tabular}{p{2cm} p{2.2cm} p{2.2cm} p{2.2cm} p={2.2cm} p{2cm}}
+	% 	\hline
+	% 	\textbf{Plateforme} & \textbf{Hébergement} & \textbf{Tarification} & \textbf{Frameworks} & \textbf{Free Tier} & \textbf{Limitation DZ} \\
+	% 	\hline
+	% 	Vercel & CDN Global (US) & Pay-as-you-go & Next.js, Frontend & Oui, généreux & Pas de CIB, latence \\
+	% 	\hline
+	% 	Railway & Multi-régions (US) & Ressources/mois & Node, Python, Go, Rust & Oui, limité & Pas CIB, frais change \\
+	% 	\hline
+	% 	Render & US-East & Ressources + durée & Node, Python, Go, Rust & Oui, limité & Pas CIB, latence \\
+	% 	\hline
+	% 	Heroku & AWS US/EU & Très cher (2022+) & 20+ langages & Non & Coûts élevés \\
+	% 	\hline
+	% 	Fly.io & Multi-régions (no DZ) & Pay-as-you-go & Tous (Docker) & Oui, petit & Pas datacenter local \\
+	% 	\hline
+	% 	Koyeb & AWS EU & Pay-as-you-go & Docker, Serverless & Oui, petit & Pas africain, frais \\
+	% 	\hline
+	% \end{tabular}
 \end{table}
 
 \section{Analyse des initiatives PaaS algériennes}
@@ -118,6 +219,7 @@
 
 \begin{figure}[h]
 	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/competitive_positioning_matrix_dz.png}
 	\caption{Matrice de positionnement compétitif (axes : qualité technique / conformité algérienne)}
 	\label{fig:1.5}
 \end{figure}

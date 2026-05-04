@@ -1,0 +1,89 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#EBF5FB', 'primaryTextColor': '#1A252F', 'primaryBorderColor': '#2E86C1', 'lineColor': '#2E86C1', 'secondaryColor': '#EAF4FB', 'tertiaryColor': '#F0F3F4'}}}%%
+
+graph LR
+
+%% ── Actors ──────────────────────────────────────────────────────────────
+    DEV(["👤 Développeur"])
+    ADMIN(["👤 Administrateur"])
+    GITHUB(["⚙️ Système GitHub\n(Webhook)"])
+    ARGO(["⚙️ Argo Workflows\n(Orchestrateur)"])
+
+%% ── System boundary ─────────────────────────────────────────────────────
+    subgraph SYS["🖥️  Système Hostifer"]
+        direction TB
+
+        subgraph AUTH["Authentification"]
+            CU01(["(CU01)\nS'authentifier\nemail/password ou OAuth GitHub"])
+        end
+
+        subgraph PROJ["Gestion des Projets"]
+            CU02(["(CU02)\nCréer un projet\ndepuis une URL GitHub"])
+            CU08(["(CU08)\nSupprimer un projet\n(déprovisionning)"])
+            CU07(["(CU07)\nGérer les membres\nd'une équipe"])
+        end
+
+        subgraph DEPLOY["Déploiement & Build"]
+            CU03(["(CU03)\nConfigurer et déclencher\nun déploiement"])
+            CU04(["(CU04)\nConsulter les logs\nde build en temps réel"])
+            CU10(["(CU10)\nRollback vers un\ndéploiement précédent"])
+        end
+
+        subgraph CICD["CI/CD & Automatisation"]
+            CU06(["(CU06)\nConfigurer le CI/CD\n(auto-deploy sur push)"])
+            CU11(["(CU11)\nDéclencher un déploiement\nautomatique via webhook"])
+        end
+
+        subgraph ENV["Configuration"]
+            CU05(["(CU05)\nGérer les variables\nd'environnement"])
+        end
+
+        subgraph ADMINUC["Administration Plateforme"]
+            CU09(["(CU09)\nAdministrer la plateforme\n(utilisateurs, plans, quotas)"])
+            CU12(["(CU12)\nSurveiller les ressources\ndu cluster"])
+        end
+
+        subgraph INFRA["Orchestration Infrastructure"]
+            CU13(["(CU13)\nProvisionner les ressources\nKubernetes (Namespace, Quotas)"])
+            CU14(["(CU14)\nExécuter le pipeline\nde build Argo"])
+        end
+    end
+
+%% ── Developer associations ───────────────────────────────────────────────
+    DEV --- CU01
+    DEV --- CU02
+    DEV --- CU03
+    DEV --- CU04
+    DEV --- CU05
+    DEV --- CU06
+    DEV --- CU07
+    DEV --- CU08
+    DEV --- CU10
+
+%% ── Admin associations ───────────────────────────────────────────────────
+    ADMIN --- CU01
+    ADMIN --- CU09
+    ADMIN --- CU12
+
+%% ── GitHub Webhook associations ──────────────────────────────────────────
+    GITHUB --- CU11
+
+%% ── Argo Workflows associations ──────────────────────────────────────────
+    ARGO --- CU13
+    ARGO --- CU14
+
+%% ── Include / Extend relations ───────────────────────────────────────────
+    CU03 -. "«include»" .-> CU13
+    CU03 -. "«include»" .-> CU14
+    CU11 -. "«include»" .-> CU03
+    CU06 -. "«include»" .-> CU11
+    CU03 -. "«extend»" .-> CU04
+    CU14 -. "«extend»" .-> CU04
+    CU03 -. "«extend»" .-> CU10
+
+%% ── Styles ───────────────────────────────────────────────────────────────
+    classDef actor fill:#D6EAF8,stroke:#2E86C1,stroke-width:2px,color:#1A252F
+    classDef usecase fill:#EBF5FB,stroke:#2E86C1,stroke-width:1.5px,color:#1A252F,rx:50,ry:50
+    classDef system fill:#F0F3F4,stroke:#717D7E,stroke-width:2px,color:#1A252F
+
+    class DEV,ADMIN,GITHUB,ARGO actor
+    class CU01,CU02,CU03,CU04,CU05,CU06,CU07,CU08,CU09,CU10,CU11,CU12,CU13,CU14 usecase
