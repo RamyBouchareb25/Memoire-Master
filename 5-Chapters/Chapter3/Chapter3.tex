@@ -2,28 +2,274 @@
 
 \section{Environnement de développement et de déploiement}
 
+
+
+% ------------------------------------------------------------
 \subsection{Infrastructure matérielle}
+% ------------------------------------------------------------
 
-% Content here
+L'infrastructure de déploiement de Hostifer repose entièrement sur le service \textit{Container Service for Kubernetes} (ACK) d'Alibaba Cloud, un service Kubernetes managé certifié conforme au programme \textit{Kubernetes Conformance} du CNCF \cite{ack-overview}. Le choix d'ACK est motivé par son intégration native avec l'ensemble des briques réseau, stockage et sécurité d'Alibaba Cloud, ainsi que par la prise en charge managée du plan de contrôle, qui délègue à Alibaba Cloud la responsabilité opérationnelle des composants critiques (\texttt{kube-apiserver}, \texttt{kube-controller-manager}, \texttt{kube-scheduler}, \texttt{etcd}) \cite{ack-ha}.
 
-\begin{table}[h]
-	\centering
-	\caption{Caractéristiques de l'environnement de déploiement (CPU, RAM, stockage, OS, distribution Kubernetes)}
-	\label{tab:3.1}
+L'architecture de déploiement s'articule autour d'un réseau privé virtuel (\textit{Virtual Private Cloud}, VPC) unique constituant le périmètre d'isolation réseau de l'ensemble des ressources de la plateforme \cite{alibaba-vpc}. Au sein de ce VPC, un \textit{vSwitch} dédié héberge les nœuds du cluster en leur attribuant des adresses IP privées, conformément aux bonnes pratiques de planification réseau ACK préconisant la séparation entre le sous-réseau des nœuds et les blocs CIDR des pods et des services \cite{ack-network}.
+
+\subsubsection*{Cluster ACK et node pools}
+
+Le cluster ACK est configuré en mode \textit{managed Pro}, dans lequel Alibaba Cloud héberge et maintient intégralement le plan de contrôle dans son infrastructure méta-cluster (\textit{Kube-on-Kube}), garantissant un SLA de disponibilité du plan de contrôle de 99,95\% en configuration multi-zone \cite{ack-ha}. Le plan de données est composé de trois node pools distincts, dimensionnés selon les profils de charge de la plateforme :
+
+\begin{itemize}
+	\item \textbf{Node pool du plan de contrôle ACK (3 nœuds)} : ce pool est réservé aux composants internes du plan de contrôle gérés par ACK (notamment \textit{CCM}, \texttt{etcd} et les services système Kubernetes associés), et n'héberge pas les workloads applicatifs de la plateforme.
+	\item \textbf{Node pool des services principaux (3 nœuds)} : trois instances ECS configurées avec 4 vCPU et 12\,Go de RAM, dédiées aux fonctionnalités cœur de la plateforme (backend NestJS, Argo Workflows, Loki, Vault, cert-manager, Traefik, registre OCI). Ce dimensionnement offre un compromis entre capacité mémoire et coût pour des composants d'orchestration et d'observabilité exécutés en continu.
+	\item \textbf{Node pool des tenants (3 nœuds, extensible)} : trois instances ECS configurées avec 4 vCPU et 16\,Go de RAM, dédiées à l'exécution des workloads applicatifs des tenants et des jobs de construction Buildkit. Ce node pool est géré par le Cluster Autoscaler d'ACK, qui ajoute ou supprime des nœuds automatiquement en fonction de l'état des pods \textit{Pending} et du taux d'utilisation des ressources, permettant une élasticité horizontale sans intervention manuelle \cite{ack-overview}.
+\end{itemize}
+
+\subsubsection*{Architecture réseau}
+
+La topologie réseau de la plateforme repose sur deux \textit{Server Load Balancers} (SLB) \cite{alibaba-slb} et trois \textit{Elastic IP Addresses} (EIP) \cite{alibaba-eip}, dont les rôles sont strictement distincts :
+
+\textbf{SLB d'entrée applicative (ports 80 et 443)} : ce premier équilibreur de charge reçoit l'ensemble du trafic HTTP et HTTPS provenant des utilisateurs finaux et des webhooks GitHub. Il distribue le trafic entrant vers le pod Traefik déployé sur les nœuds du cluster, qui assure ensuite le routage vers les services des tenants selon les règles d'IngressRoute. Une EIP entrante dédiée lui est associée, constituant le point d'entrée public unique de la plateforme.
+
+\textbf{SLB d'accès à l'API Kubernetes (port 6443)} : ce second équilibreur de charge expose le serveur API Kubernetes (\texttt{kube-apiserver}) pour les connexions \texttt{kubectl} et les appels d'administration depuis les outils de déploiement (Helm, Argo Workflows CLI). Une EIP entrante dédiée lui est associée, permettant l'accès sécurisé au plan de contrôle depuis les environnements de développement et de CI/CD.
+
+\textbf{NAT Gateway et EIP sortante} : les nœuds de travail ne disposent d'aucune adresse IP publique directe. Leurs connexions sortantes (clonage de dépôts Git depuis GitHub, téléchargement d'images de base depuis des registres publics) sont acheminées via une passerelle NAT Internet (\textit{Internet NAT Gateway}) à laquelle une troisième EIP sortante est associée \cite{alibaba-vpc}. Ce mécanisme de SNAT centralise et masque les origines des requêtes sortantes, réduisant la surface d'exposition publique du cluster.
+
+\subsubsection*{Infrastructure de stockage}
+
+La plateforme mobilise trois types de stockage complémentaires, sélectionnés selon les caractéristiques d'accès et de persistance requises par chaque composant \cite{alibaba-csi} :
+
+\textbf{NAS (\textit{Network Attached Storage})} : le stockage NAS est utilisé pour les \textit{PersistentVolumeClaims} (PVC) nécessitant un accès concurrent depuis plusieurs pods, notamment pour le registre OCI interne (stockage des couches d'images) et pour la persistance des données Loki. Le protocole NFS sous-jacent permet le montage simultané depuis plusieurs nœuds (\textit{ReadWriteMany}), ce qui est incompatible avec les disques EBS par nature mono-nœud \cite{alibaba-nas}.
+
+\textbf{Cloud Disks EBS (ESSD)} : les volumes EBS de type ESSD (\textit{Enhanced SSD}) sont utilisés pour les workloads nécessitant des accès disque à faible latence et à haute performance I/O, notamment les jobs de construction Buildkitd pour lesquels le cache des couches de build est stocké localement sur des volumes bloc dédiés. Chaque volume EBS est attaché à un nœud unique (\textit{ReadWriteOnce}), ce qui les rend adaptés aux charges à fort débit séquentiel ou aléatoire \cite{alibaba-csi}.
+
+\textbf{Object Storage Service (OSS)} : le stockage objet OSS est utilisé pour deux cas d'usage distincts. D'une part, le stockage occasionnel de fichiers artefacts générés par la plateforme (plans de build exportés, archives de logs). D'autre part, le stockage dit \textit{cold} pour les journaux et données d'observabilité archivés à long terme, pour lesquels les contraintes de latence d'accès sont relâchées mais le coût de stockage par gigaoctet doit être minimisé \cite{alibaba-nas}.
+
+Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'environnement de déploiement.
+
+% ── Tableau 3.1 — Environnement de déploiement ──────────────
+\begin{table}[htbp]
+\caption{Caractéristiques de l'environnement de déploiement}
+\label{tab:infra-hardware}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3.5cm}|p{3cm}|p{6.5cm}|}
+\hline
+\textbf{Composant} & \textbf{Paramètre} & \textbf{Valeur} \\
+\hline
+
+% ── Cluster ─────────────────────────────────────────────────
+\multirow{3}{*}{\shortstack{\textbf{Cluster}\\\textbf{Kubernetes}}}
+  & Service       & Alibaba Cloud ACK (\textit{Managed Pro}) \\
+\cline{2-3}
+  & Distribution  & Kubernetes 1.31+ (ACK patch \texttt{x.y.z-aliyun.n}) \\
+\cline{2-3}
+  & Runtime       & containerd \\
+\hline
+
+% ── Node pool contrôle ───────────────────────────────────────
+\multirow{4}{*}{\shortstack{\textbf{Node pool} \\ \textbf{contrôle}}}
+  & Nœuds         & 3 instances ECS \\
+\cline{2-3}
+  & CPU           & 4 vCPU / nœud \\
+\cline{2-3}
+  & RAM           & 16\,Go / nœud \\
+\cline{2-3}
+  & OS            & Alibaba Cloud Linux \\
+\hline
+
+% ── Node pool travail ────────────────────────────────────────
+\multirow{5}{*}{\shortstack{\textbf{Node pool} \\ \textbf{travail}}}
+  & Nœuds         & 3 instances ECS (extensible) \\
+\cline{2-3}
+  & CPU           & 4 vCPU / nœud \\
+\cline{2-3}
+  & RAM           & 8\,Go / nœud \\
+\cline{2-3}
+  & OS            & Alibaba Cloud Linux \\
+\cline{2-3}
+  & Autoscaling   & Cluster Autoscaler ACK (ajout/suppression automatique de nœuds) \\
+\hline
+
+% ── Réseau ──────────────────────────────────────────────────
+\multirow{6}{*}{\textbf{Réseau}}
+  & VPC           & 1 VPC isolé, 1 vSwitch nœuds \\
+\cline{2-3}
+  & SLB applicatif      & 1 SLB — ports 80/443 (trafic HTTP/HTTPS entrant) \\
+\cline{2-3}
+  & SLB API server      & 1 SLB — port 6443 (accès \texttt{kubectl}) \\
+\cline{2-3}
+  & EIP entrante (app)  & 1 EIP associée au SLB ports 80/443 \\
+\cline{2-3}
+  & EIP entrante (API)  & 1 EIP associée au SLB port 6443 \\
+\cline{2-3}
+  & EIP sortante        & 1 EIP associée au NAT Gateway (SNAT worker nodes) \\
+\hline
+
+% ── Stockage ────────────────────────────────────────────────
+\multirow{3}{*}{\textbf{Stockage}}
+  & NAS (NFS)     & PVC multi-nœuds (\textit{ReadWriteMany}) — registre OCI, Loki \\
+\cline{2-3}
+  & EBS (ESSD)    & Volumes bloc haute performance (\textit{ReadWriteOnce}) — cache Buildkitd \\
+\cline{2-3}
+  & OSS           & Stockage objet — artefacts occasionnels et archivage \textit{cold} \\
+\hline
+
+\end{tabular}
 \end{table}
 
 \subsection{Outils de développement}
 
 % Content here
 
-\begin{table}[h]
-	\centering
-	\caption{Environnement de développement (IDE, outils CLI, chaîne CI/CD, gestionnaires de paquets)}
-	\label{tab:3.2}
-\end{table}
+\begin{longtable}{|p{3.5cm}|p{3.5cm}|p{6cm}|}
+\caption{Environnement de développement}
+\label{tab:dev-env} \\
 
+\hline
+\textbf{Catégorie} & \textbf{Outil / Technologie} & \textbf{Rôle} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Catégorie} & \textbf{Outil / Technologie} & \textbf{Rôle} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+% ── IDE ─────────────────────────────────────────────────────
+\textbf{IDE} & Visual Studio Code & Éditeur principal pour le développement frontend, backend et infrastructure \\
+\hline
+
+% ── Runtimes ────────────────────────────────────────────────
+\multirow{2}{*}{\textbf{Runtimes}}
+  & Node.js 24 LTS & Environnement d'exécution JavaScript pour le frontend Next.js et le backend NestJS \\
+\cline{2-3}
+  & Go (dernière version LTS) & Environnement d'exécution du binaire builder \\
+\hline
+
+% ── Frameworks ──────────────────────────────────────────────
+\multirow{2}{*}{\textbf{Frameworks}}
+  & Next.js & Framework React full-stack pour le frontend de la plateforme \\
+\cline{2-3}
+  & NestJS  & Framework Node.js modulaire pour le backend API REST et SSE \\
+\hline
+
+% ── Base de données ─────────────────────────────────────────
+\textbf{Base de données} & PostgreSQL & Système de gestion de base de données relationnelle principal de la plateforme \\
+\hline
+
+% ── Gestionnaires de paquets ─────────────────────────────────
+\multirow{3}{*}{\textbf{Gestionnaires de paquets}}
+  & npm & Gestion des dépendances Node.js (frontend Next.js et backend NestJS) \\
+\cline{2-3}
+  & Go Modules (\texttt{go mod}) & Gestion des dépendances du binaire builder Go \\
+\cline{2-3}
+  & Helm & Gestion et déploiement des charts Kubernetes de la plateforme \\
+\hline
+
+% ── Outils CLI ──────────────────────────────────────────────
+\multirow{8}{*}{\textbf{Outils CLI}}
+  & \texttt{kubectl}  & Administration et inspection des ressources du cluster Kubernetes \\
+\cline{2-3}
+  & \texttt{helm}     & Déploiement, mise à jour et test des charts Helm en local et en production \\
+\cline{2-3}
+  & \texttt{argo}     & Soumission, suivi et débogage des workflows Argo Workflows \\
+\cline{2-3}
+  & \texttt{crictl}   & Inspection bas niveau des conteneurs et images via l'interface CRI \\
+\cline{2-3}
+  & \texttt{docker}   & Construction et test local des images conteneurs avant push vers le registre \\
+\cline{2-3}
+  & \texttt{git}      & Gestion du code source et interaction avec les dépôts GitHub \\
+\cline{2-3}
+  & \texttt{vault}    & Interaction avec HashiCorp Vault pour la gestion et le test des secrets \\
+\cline{2-3}
+  & \texttt{railpack} & Test local de la détection de framework et de la génération des plans de build \\
+\hline
+
+% ── CI/CD ───────────────────────────────────────────────────
+\multirow{2}{*}{\textbf{Chaîne CI/CD}}
+  & GitHub Actions & Intégration continue : lint, build, tests et publication des images OCI sur GHCR \\
+\cline{2-3}
+  & ArgoCD         & Livraison continue : synchronisation GitOps des manifests Kubernetes vers le cluster ACK \\
+\hline
+
+\end{longtable}
+
+% ------------------------------------------------------------
 \subsection{Organisation des dépôts GitHub}
+% ------------------------------------------------------------
 
+Le code source de Hostifer est organisé en plusieurs dépôts GitHub distincts, chacun correspondant à un composant logique de la plateforme. Cette séparation permet une gestion indépendante des cycles de release, des pipelines CI/CD et des droits d'accès pour chaque composant. Les artefacts produits par chaque dépôt — images Docker et charts Helm — sont publiés sur le registre \textit{GitHub Container Registry} (GHCR) sous le namespace \texttt{ghcr.io/hostifer}, conformément au standard OCI (\textit{Open Container Initiative}) \cite{oci-spec}.
+
+\textbf{Dépôt \texttt{frontend} (Next.js).} Ce dépôt contient le code source de l'interface utilisateur de la plateforme, développée avec Next.js. Le pipeline GitHub Actions associé construit et publie l'image Docker du frontend sur GHCR à l'adresse \texttt{ghcr.io/hostifer/frontend:<tag>}. Cette image est ensuite déployée sur le cluster ACK via ArgoCD lors de chaque release.
+
+\textbf{Dépôt \texttt{backend} (NestJS).} Ce dépôt contient le code source de l'API backend, développée avec NestJS. Son pipeline CI/CD produit deux images Docker distinctes publiées sur GHCR : l'image principale du backend à l'adresse \\ \texttt{ghcr.io/hostifer/backend:<tag>}, et une image de migration de schéma de base de données à l'adresse \texttt{ghcr.io/hostifer/migrate:<tag>}. Cette dernière est exécutée en tant que Job Kubernetes avant chaque mise à jour du backend afin d'appliquer les migrations Prisma sans interruption de service.
+
+\textbf{Dépôt \texttt{helm} (chart principal).} Ce dépôt contient le chart Helm de déploiement des composants principaux de la plateforme (frontend, backend, ingress, secrets). Le chart est publié sous forme de package OCI sur GHCR à l'adresse \texttt{oci://ghcr.io/hostifer/charts/helm} et est consommé par ArgoCD pour la synchronisation GitOps de l'état du cluster.
+
+\textbf{Dépôt \texttt{tenant} (chart tenant).} Ce dépôt contient le chart Helm dédié au provisionnement des tenants. À chaque déploiement d'application utilisateur, Argo Workflows invoque ce chart publié à l'adresse \texttt{oci://ghcr.io/hostifer/charts/tenant} pour créer l'ensemble des ressources Kubernetes du namespace tenant : \textit{Deployment}, \textit{Service}, \textit{IngressRoute}, \textit{NetworkPolicy}, \textit{ResourceQuota}, \textit{HorizontalPodAutoscaler} et \textit{ExternalSecret}.
+
+\textbf{Dépôt \texttt{build-job} (Go).} Ce dépôt contient le code source du binaire Go exécuté en tant que Job Kubernetes lors de l'étape \textit{Build} du pipeline Argo Workflows. Il orchestre le clonage du dépôt Git, l'invocation de Railpack CLI pour la détection du framework et la génération du plan de build, puis la construction et le push de l'image OCI de l'application via Buildkitd. L'image du builder est publiée sur GHCR à l'adresse \texttt{ghcr.io/hostifer/build-job:<tag>}.
+
+\textbf{Dépôt \texttt{create-dns-job} (Go).} Ce dépôt contient le code source du Job Go responsable de la création des enregistrements DNS pour le sous-domaine de l'application déployée, lors de l'étape \textit{DNS} du pipeline Argo Workflows. Son image Docker est publiée à l'adresse \texttt{ghcr.io/hostifer/create-dns:<tag>}.
+
+\textbf{Dépôt \texttt{delete-dns-job} (Go).} Ce dépôt contient le code source du Job Go déclenché lors de la suppression d'un projet (CU08), chargé de supprimer les enregistrements DNS associés au sous-domaine de l'application. Son image Docker est publiée à l'adresse \texttt{ghcr.io/hostifer/delete-dns-job:<tag>}.
+
+\textbf{Dépôt \texttt{gitops} (ArgoCD).} Ce dépôt ne produit aucun artefact compilé. Il contient exclusivement les manifests Kubernetes et les fichiers de valeurs Helm (\texttt{values.yaml}) décrivant l'état cible du cluster. ArgoCD surveille ce dépôt en continu et synchronise l'état réel du cluster ACK vers l'état déclaré dans le dépôt, selon le paradigme GitOps \cite{gitops-principles}.
+
+\textbf{Dépôt \texttt{documentation} (Mintlify).} Ce dépôt contient la documentation technique et utilisateur de la plateforme, générée avec Mintlify. Il ne produit aucun artefact OCI et est déployé indépendamment via le service d'hébergement Mintlify.
+
+Le tableau~\ref{tab:github-repos} récapitule l'ensemble des dépôts, leurs technologies et les artefacts publiés.
+
+\begin{longtable}{|p{3.2cm}|p{2cm}|p{7.8cm}|}
+\caption{Organisation des dépôts GitHub et artefacts GHCR}
+\label{tab:github-repos} \\
+
+\hline
+\textbf{Dépôt} & \textbf{Langage} & \textbf{Artefacts publiés (GHCR)} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Dépôt} & \textbf{Langage} & \textbf{Artefacts publiés (GHCR)} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{frontend}        & TypeScript & \texttt{ghcr.io/hostifer/frontend:<tag>} \\
+\hline
+\texttt{backend}         & TypeScript &
+  \texttt{ghcr.io/hostifer/backend:<tag>} \newline
+  \texttt{ghcr.io/hostifer/migrate:<tag>} \\
+\hline
+\texttt{helm}            & Helm &
+  \texttt{oci://ghcr.io/hostifer/charts/helm} \\
+\hline
+\texttt{tenant}          & Helm &
+  \texttt{oci://ghcr.io/hostifer/charts/tenant} \\
+\hline
+\texttt{build-job}       & Go & \texttt{ghcr.io/hostifer/build-job:<tag>} \\
+\hline
+\texttt{create-dns-job}  & Go & \texttt{ghcr.io/hostifer/create-dns:<tag>} \\
+\hline
+\texttt{delete-dns-job}  & Go & \texttt{ghcr.io/hostifer/delete-dns-job:<tag>} \\
+\hline
+\texttt{gitops}          & YAML & — (aucun artefact, manifests ArgoCD uniquement) \\
+\hline
+\texttt{documentation}   & MDX  & — (aucun artefact, hébergement Mintlify) \\
+\hline
+
+\end{longtable}
 % Content here
 
 \begin{figure}[h]
@@ -46,18 +292,117 @@
 
 \subsection{Module d'authentification}
 
-% Content here
+% ------------------------------------------------------------
+\subsection{Module d'authentification}
+% ------------------------------------------------------------
 
-\begin{figure}[h]
-	\centering
-	\caption{Diagramme de séquence détaillé du refresh token (jwt callback → NestJS /auth/refresh → nouvelle paire de tokens → mise à jour session)}
-	\label{fig:3.3}
-\end{figure}
+Le module d'authentification constitue l'une des couches les plus critiques de la plateforme. Il est implémenté dans le module NestJS \texttt{auth/} et repose sur la bibliothèque Passport.js, intégrée à NestJS via le package \texttt{@nestjs/passport}, qui expose un mécanisme de stratégies d'authentification interchangeables et extensibles \cite{nestjs-auth}. Trois mécanismes d'authentification distincts sont implémentés : l'authentification par identifiant et mot de passe avec émission de jetons JWT, l'authentification déléguée via OAuth~2.0 GitHub, et l'authentification à deux facteurs (2FA) basée sur TOTP (\textit{Time-based One-Time Password}).
+
+\subsubsection*{Authentification JWT et stratégie Passport}
+
+L'authentification principale repose sur la stratégie \texttt{passport-jwt}, configurée dans \texttt{jwt.strategy.ts}. Lors d'une connexion par identifiant et mot de passe, le service \texttt{auth.service.ts} vérifie les identifiants soumis contre l'enregistrement \texttt{User} en base de données PostgreSQL via Prisma, en comparant le mot de passe soumis au hachage bcrypt stocké. En cas de succès, il émet deux jetons distincts via le service \texttt{@nestjs/jwt} \cite{nestjs-jwt} :
+
+\begin{itemize}
+  \item Un \textbf{jeton d'accès} (\textit{access token}) JWT de courte durée de vie, signé avec un secret \texttt{JWT\_ACCESS\_SECRET} dédié. Son payload contient uniquement l'identifiant et l'email de l'utilisateur, conformément au principe de minimisation des données dans le payload JWT \cite{jwt-deepwiki}. Ce jeton est transmis par le client dans l'en-tête \texttt{Authorization: Bearer <token>} à chaque requête vers les endpoints protégés.
+  \item Un \textbf{jeton de rafraîchissement} (\textit{refresh token}) de longue durée de vie, signé avec un secret \texttt{JWT\_REFRESH\_SECRET} distinct. Avant persistance, ce jeton est haché en base de données dans le champ \texttt{refreshToken} de l'entité \texttt{User}, de sorte qu'une fuite de la base de données n'expose jamais de jetons de rafraîchissement en clair \cite{refresh-token-nestjs}.
+\end{itemize}
+
+La stratégie JWT est enregistrée comme guard global via \texttt{JwtGuard} (\texttt{guards/jwt.guard.ts}), qui étend \texttt{AuthGuard('jwt')} de Passport. Ce guard est appliqué sur tous les endpoints protégés du backend, garantissant que seules les requêtes portant un jeton d'accès valide et non expiré peuvent atteindre les handlers NestJS.
+
+\subsubsection*{Rotation des jetons de rafraîchissement}
+
+La rotation des jetons de rafraîchissement (\textit{refresh token rotation}) est un mécanisme de sécurité selon lequel chaque utilisation d'un jeton de rafraîchissement entraîne son invalidation immédiate et l'émission d'une nouvelle paire de jetons \cite{refresh-token-rotation}. Ce mécanisme est implémenté dans la méthode \texttt{refreshTokens()} de \texttt{auth.service.ts}, invoquée via l'endpoint \texttt{POST /auth/refresh}.
+
+Lors d'un appel à cet endpoint, NestJS valide le jeton de rafraîchissement soumis en le comparant au hachage stocké en base de données. Si la vérification réussit, une nouvelle paire jeton d'accès / jeton de rafraîchissement est générée : le nouveau jeton de rafraîchissement est haché et remplace l'ancien en base, tandis que l'ancien est définitivement invalidé. Ce mécanisme garantit que la réutilisation d'un jeton de rafraîchissement volé soit détectable : si un attaquant tente d'utiliser un jeton déjà consommé, la vérification du hachage échoue et la session est révoquée \cite{refresh-token-blog}.
+
+\subsubsection*{Délégation OAuth GitHub au backend}
+
+Le flux OAuth~2.0 GitHub est entièrement délégué au backend NestJS plutôt que géré directement par NextAuth.js côté frontend. Ce choix architectural garantit que les tokens GitHub ne transitent jamais en clair dans le navigateur et que la logique de création ou de mise à jour du compte utilisateur reste dans la couche backend, où elle peut être auditée et testée indépendamment. La stratégie OAuth GitHub est implémentée dans \texttt{github-oauth.strategy.ts} via \texttt{PassportStrategy} et le package \texttt{passport-github2}.
+
+Le flux se déroule en deux étapes. Lors de l'initiation, le frontend redirige l'utilisateur vers \texttt{GET /auth/github}, qui déclenche le guard \texttt{GithubOAuthGuard} (\texttt{guards/github-oauth.guard.ts}) et redirige vers le serveur d'autorisation GitHub avec les scopes requis. Après consentement de l'utilisateur, GitHub retourne un code d'autorisation vers l'URL de callback \texttt{GET /auth/github/callback}. NestJS échange ce code contre un token d'accès GitHub et invoque la méthode \texttt{validateOrCreateOAuthUser()} du service d'authentification, qui crée ou met à jour l'enregistrement \texttt{User} en base de données en associant le \texttt{githubId} retourné par GitHub au profil. NestJS émet ensuite une paire de jetons JWT propres à la plateforme et les retourne au frontend, de sorte que les appels API ultérieurs du client utilisent exclusivement les JWT Hostifer et non les tokens GitHub.
+
+\subsubsection*{Rotation des jetons dans le callback NextAuth.js}
+
+Côté frontend Next.js, la gestion des sessions est assurée par NextAuth.js, configuré avec un \texttt{CredentialsProvider} personnalisé qui délègue la validation des identifiants au backend NestJS. NextAuth.js persiste les jetons JWT émis par le backend dans sa session chiffrée côté serveur, évitant toute exposition dans le \texttt{localStorage} du navigateur, vulnérable aux attaques XSS \cite{nextauth-refresh}.
+
+La rotation des jetons est orchestrée dans le \textbf{callback \texttt{jwt}} de NextAuth.js, qui est invoqué à chaque validation de session \cite{authjs-refresh}. Ce callback implémente la logique suivante : si la date d'expiration du jeton d'accès courant est dépassée, NextAuth.js appelle automatiquement l'endpoint \texttt{POST /auth/refresh} du backend NestJS en transmettant le jeton de rafraîchissement stocké en session. Si NestJS retourne une nouvelle paire de jetons, le callback met à jour la session avec les nouveaux jetons et la nouvelle date d'expiration, de manière totalement transparente pour l'utilisateur. En cas d'échec du rafraîchissement (jeton révoqué ou expiré), le callback positionne un champ \texttt{error: "RefreshAccessTokenError"} dans le token NextAuth.js, que le callback \texttt{session} propage au client, déclenchant une déconnexion forcée et une redirection vers la page de connexion \cite{nextauth-refresh-discussion}.
+
+Cette architecture à deux couches — rotation au niveau NestJS pour la sécurité de l'infrastructure, et rafraîchissement automatique au niveau NextAuth.js pour la transparence de l'expérience utilisateur — garantit des sessions longues sans compromettre la sécurité des jetons.
+
 
 \subsection{Module de déploiement et orchestration Argo}
 
-% Content here
+% ------------------------------------------------------------
+\subsection{Module de déploiement et orchestration Argo Workflows}
+% ------------------------------------------------------------
 
+Le module \texttt{deployments/} constitue le cœur fonctionnel du backend Hostifer. Il est responsable de l'orchestration complète du cycle de vie des déploiements : soumission des workflows à Argo Workflows, synchronisation périodique de leur statut, et mise à jour transactionnelle des enregistrements \texttt{Deployment} et \texttt{DeploymentStep} en base de données PostgreSQL. Il expose également l'endpoint SSE de streaming des journaux de build, décrit dans la section suivante.
+
+\subsubsection*{Soumission des workflows via l'API REST Argo}
+
+Argo Workflows expose un serveur API REST dédié (\texttt{argo-server}), distinct de l'API Kubernetes, qui offre des endpoints pour la soumission, l'interrogation et l'annulation des workflows \cite{argo-rest-api}. La soumission d'un workflow depuis NestJS n'est donc pas effectuée via le client Kubernetes, mais via une requête HTTP \texttt{POST} vers l'endpoint \texttt{/api/v1/workflows/\{namespace\}/submit} de l'API Argo, en transmettant un corps JSON indiquant le \textit{WorkflowTemplate} à instancier ainsi que les paramètres dynamiques du déploiement \cite{argo-submit-example}.
+
+La méthode \texttt{submitDeployWorkflow(payload)} du service \texttt{argo.service.ts} construit ce corps de requête en injectant les paramètres propres à chaque déploiement : identifiant du projet, tag de l'image à construire, namespace Kubernetes du tenant, référence au dépôt Git et branche cible. L'authentification auprès de l'API Argo est assurée par un jeton de service (\textit{ServiceAccount token}) transmis dans l'en-tête \texttt{Authorization: Bearer}. En retour, l'API Argo retourne le manifeste du \textit{Workflow} instancié, dont le champ \texttt{metadata.name} est extrait et stocké dans le champ \texttt{argoWorkflowName} de l'enregistrement \texttt{Deployment} en base de données. Ce nom est utilisé comme clé d'identification pour toutes les interrogations de statut ultérieures.
+
+De manière symétrique, la méthode \texttt{submitDeleteWorkflow(payload)} soumet un \textit{WorkflowTemplate} de suppression lors de la demande de déprovisionning d'un projet (CU08), orchestrant la suppression de la release Helm, du namespace Kubernetes et des enregistrements DNS via les jobs Go dédiés.
+
+\subsubsection*{Synchronisation du statut par polling}
+
+Argo Workflows ne propose pas de mécanisme de callback ou de webhook natif permettant à un système externe d'être notifié de l'évolution du statut d'un workflow. Le statut est exposé via l'endpoint \texttt{GET /api/v1/workflows/\{namespace\}/\{name\}} qui retourne l'objet \textit{Workflow} complet, dont le champ \texttt{status.phase} reflète l'état courant : \texttt{Pending}, \texttt{Running}, \texttt{Succeeded}, \texttt{Failed} ou \texttt{Error} \cite{argo-rest-api}. Le champ \texttt{status.nodes} contient quant à lui l'état détaillé de chaque nœud du workflow, correspondant à une étape individuelle du pipeline.
+
+La synchronisation du statut est implémentée dans la méthode \texttt{syncDeploymentStatus(deploymentId)} de \texttt{deployments.service.ts}, selon un mécanisme de \textit{polling} périodique. Cette méthode est invoquée régulièrement par le service NestJS après la soumission d'un workflow. À chaque appel, elle interroge l'API Argo via la méthode \texttt{getWorkflowStatus(workflowName)} du service \texttt{argo.service.ts}, parse la réponse JSON retournée, et en extrait les informations de statut nécessaires à la mise à jour de la base de données.
+
+La correspondance entre les phases Argo et les statuts internes de Hostifer est définie comme suit. Tant que le workflow est en phase \texttt{Running}, le service examine l'état des nœuds individuels (\texttt{status.nodes}) pour déterminer quelle étape du pipeline est en cours d'exécution (\textit{Build}, \textit{Provision} ou \textit{DNS}) et met à jour le statut du \texttt{Deployment} en conséquence (\texttt{BUILDING}, \texttt{PROVISIONING} ou \texttt{CONFIGURING\_DNS}). Lorsque le workflow atteint la phase \texttt{Succeeded}, le statut est mis à jour à \texttt{LIVE} et le timestamp \texttt{finishedAt} est enregistré. En cas de phase \texttt{Failed} ou \texttt{Error}, le statut passe à \texttt{FAILED} et le message d'erreur est extrait via la méthode privée \texttt{extractWorkflowFailureMessage()}, qui parcourt les nœuds du workflow à la recherche du premier nœud en état d'échec et récupère son champ \texttt{message}. En cas d'annulation explicite, le statut passe à \texttt{CANCELLED}.
+
+\subsubsection*{Mise à jour des enregistrements Deployment et DeploymentStep}
+
+Chaque appel à \texttt{syncDeploymentStatus()} se conclut par une mise à jour transactionnelle des enregistrements Prisma correspondant au déploiement. Deux entités sont mises à jour simultanément lors de chaque cycle de synchronisation.
+
+L'entité \texttt{Deployment} est mise à jour avec le nouveau statut, le timestamp \texttt{updatedAt}, et — lorsque le déploiement atteint un état terminal — les champs \texttt{finishedAt} et \texttt{totalDuration} calculés comme la différence en secondes entre \texttt{finishedAt} et \texttt{createdAt}.
+
+L'entité \texttt{DeploymentStep} représente l'état individuel de chacune des trois étapes du pipeline (\textit{Build}, \textit{Provision}, \textit{DNS}). Pour chaque étape, un enregistrement \texttt{DeploymentStep} est créé ou mis à jour avec le statut du nœud Argo correspondant, son heure de démarrage (\texttt{startedAt}), son heure de fin (\texttt{finishedAt}), et un message d'erreur optionnel. Cette granularité permet à l'interface utilisateur d'afficher une progression détaillée par étape, et non uniquement le statut global du déploiement.
+
+Le flux complet de déclenchement d'un déploiement, depuis la réception de la requête \texttt{POST /deployments} jusqu'au passage en état \texttt{LIVE}, est illustré dans la Figure~2.5 (diagramme de séquence du déploiement).
+
+\begin{longtable}{|p{3.5cm}|p{3cm}|p{6.5cm}|}
+\caption{Correspondance entre les phases Argo Workflows et les statuts internes Hostifer}
+\label{tab:argo-status-mapping} \\
+
+\hline
+\textbf{Phase Argo} & \textbf{Nœud actif} & \textbf{Statut Hostifer (\texttt{DeploymentStatus})} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Phase Argo} & \textbf{Nœud actif} & \textbf{Statut Hostifer (\texttt{DeploymentStatus})} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{Pending}    & —                   & \texttt{QUEUED} \\
+\hline
+\texttt{Running}    & \texttt{build}      & \texttt{BUILDING} \\
+\hline
+\texttt{Running}    & \texttt{provision}  & \texttt{PROVISIONING} \\
+\hline
+\texttt{Running}    & \texttt{dns}        & \texttt{CONFIGURING\_DNS} \\
+\hline
+\texttt{Succeeded}  & —                   & \texttt{LIVE} \\
+\hline
+\texttt{Failed}     & —                   & \texttt{FAILED} \\
+\hline
+\texttt{Error}      & —                   & \texttt{FAILED} \\
+\hline
+\texttt{(annulé)}   & —                   & \texttt{CANCELLED} \\
+\hline
+
+\end{longtable}
 \subsection{Module de streaming des logs}
 
 % Content here

@@ -1,7 +1,6 @@
 \immediate\write18{makeindex \jobname.nlo -s nomencl.ist -o \jobname.nls} % Use this line to generate auto Nomenclature
 \documentclass[12pt,a4paper,oneside]{report}
 \input{Preamble/preamble}
-\usepackage{svg}
 \begin{document}
 	%% frontmatter
 	\pagenumbering{roman}
@@ -27,7 +26,7 @@
 	\clearpage
 	\newpage
 	
-	%% mainmatter
+	%% mainmatter 
 	\pagenumbering{arabic}	
 	\include{4-Introduction/Introduction}
 	\include{5-Chapters/Chapter1/Chapter1}

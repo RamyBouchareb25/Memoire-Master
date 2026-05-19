@@ -12,4 +12,8 @@
 *.lot
 *.nlo
 *.nls
+*.dvi
 *.synctex*
+
+**/.DS_Store
+.DS_Store

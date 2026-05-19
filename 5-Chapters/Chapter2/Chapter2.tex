@@ -5,23 +5,87 @@
 La phase de recueil et de spécification des besoins constitue le fondement de toute démarche d'ingénierie logicielle rigoureuse. Elle permet d'établir un contrat clair entre les parties prenantes et l'équipe de développement, en formalisant les attentes fonctionnelles et les contraintes non fonctionnelles du système. Dans le cadre de Hostifer, cette phase revêt une importance particulière, car la plateforme doit répondre simultanément aux exigences d'une infrastructure multi-tenant à haute disponibilité, aux contraintes réglementaires algériennes, et aux attentes d'utilisabilité propres aux développeurs. Les besoins ont été recueillis par une analyse itérative combinant l'étude des solutions existantes (menée au chapitre précédent) et la modélisation des cas d'usage réels identifiés lors de la conception.
 
 % ------------------------------------------------------------
+\% ------------------------------------------------------------
 \subsection{Identification des acteurs}
 % ------------------------------------------------------------
 
-Un acteur, au sens de la modélisation UML, représente toute entité externe qui interagit avec le système, qu'il s'agisse d'un être humain, d'un système tiers ou d'un composant logiciel automatisé \cite{booch-uml}. L'identification précise des acteurs est une étape préalable indispensable à la construction des diagrammes de cas d'utilisation, car elle délimite les frontières du système et clarifie les responsabilités de chaque intervenant.
+Au sens de la norme UML~2.5, un acteur est un \textit{behaviored classifier} qui modélise le rôle joué par une entité externe au système, qu'il s'agisse d'un utilisateur humain, d'un système logiciel tiers ou d'un composant matériel, et qui interagit avec le sujet par échange de signaux et de données \cite{uml-spec}. L'acteur est, par définition, placé en dehors de la frontière du système ; il n'en fait pas partie mais en déclenche ou en consulte les comportements observables \cite{booch-uml}. L'identification rigoureuse des acteurs est une étape préalable à toute modélisation des cas d'utilisation, car elle délimite le périmètre du système et constitue le point de départ de l'élicitation des besoins \cite{sommerville-se}.
 
-Pour Hostifer, cinq acteurs distincts ont été identifiés, chacun interagissant avec le système selon des modalités et des droits d'accès spécifiques.
+Pour Hostifer, l'analyse des diagrammes de séquence et des flux d'interaction a permis d'identifier deux catégories d'acteurs : les \textbf{acteurs humains}, qui initient des actions via une interface utilisateur, et les \textbf{acteurs systèmes}, qui interagissent avec la plateforme de manière automatisée, soit en tant que systèmes externes déclencheurs, soit en tant que composants d'infrastructure participant aux workflows internes. Le tableau~\ref{tab:acteurs} présente la synthèse complète des acteurs identifiés.
 
-\textbf{Le Développeur} est l'acteur principal de la plateforme. Il s'agit du profil utilisateur central : un ingénieur logiciel, un freelance ou un membre d'une équipe produit souhaitant déployer et gérer des applications web sans administrer directement l'infrastructure sous-jacente. Le développeur interagit avec Hostifer via l'interface web (frontend Next.js) pour créer des projets, déclencher des déploiements, consulter les journaux de construction, gérer les variables d'environnement et configurer le pipeline d'intégration et de livraison continues (CI/CD).
+\subsubsection*{Acteurs humains}
 
-\textbf{L'Administrateur de la plateforme} est un acteur secondaire disposant de droits étendus sur l'ensemble du système. Il assure la supervision de l'infrastructure Kubernetes sous-jacente, gère les plans tarifaires, surveille la consommation des ressources par tenant, et intervient en cas d'incident de production. L'administrateur interagit principalement avec les outils d'observabilité (tableaux de bord Grafana, interface Argo Workflows) ainsi qu'avec les API d'administration exposées par le backend NestJS.
+\textbf{L'Utilisateur (Développeur)} est l'acteur principal de la plateforme. Il représente tout profil de développeur souhaitant déployer et opérer des applications web sans gérer directement l'infrastructure sous-jacente : ingénieur logiciel, freelance, membre d'une startup ou d'une PME. L'utilisateur interagit avec Hostifer exclusivement via le \textbf{frontend Next.js}, qui constitue le point d'entrée graphique de la plateforme. Ses actions couvrent l'ensemble du cycle de vie applicatif : authentification, création et configuration de projets, déclenchement de déploiements, consultation des journaux de build en temps réel, gestion des variables d'environnement, et activation du pipeline CI/CD automatique.
 
-\textbf{Le Système GitHub} est un acteur externe automatisé. Il interagit avec Hostifer via un mécanisme de webhook : à chaque événement \texttt{push} sur une branche configurée d'un dépôt GitHub, une requête HTTP \texttt{POST} est émise vers l'endpoint webhook du backend NestJS. Cet acteur déclenche ainsi automatiquement le pipeline CI/CD sans intervention humaine, permettant un déploiement continu à chaque mise à jour du code source.
+\textbf{L'Administrateur de la plateforme} est un acteur humain secondaire disposant de droits étendus sur l'ensemble du système. Il supervise la santé de l'infrastructure, gère les plans tarifaires et les quotas de ressources par tenant, et intervient en cas d'incident. L'administrateur interagit principalement avec les outils d'observabilité et d'orchestration (tableaux de bord Grafana, interface Argo Workflows UI) ainsi qu'avec les API d'administration exposées par le \textbf{backend NestJS}.
 
-\textbf{Argo Workflows} constitue le moteur d'orchestration des pipelines de déploiement. En tant qu'acteur interne automatisé, il reçoit les soumissions de workflows depuis le backend NestJS, exécute séquentiellement les étapes \textit{Build}, \textit{Provision} et \textit{DNS}, et communique l'état d'avancement de chaque étape. Argo Workflows interagit directement avec l'API Kubernetes pour créer les ressources nécessaires à l'exécution des jobs de construction et au provisionnement des tenants.
+\subsubsection*{Acteurs systèmes externes}
 
-\textbf{L'API Kubernetes} représente le point d'entrée de l'infrastructure d'exécution. Elle est sollicitée par le backend NestJS et par Argo Workflows pour la création, la mise à jour et la suppression des ressources Kubernetes associées à chaque tenant~: \textit{Namespace}, \textit{Deployment}, \textit{Service}, \textit{NetworkPolicy}, \textit{ResourceQuota} et \textit{HorizontalPodAutoscaler}. Elle constitue le substrat technique sur lequel repose l'ensemble des opérations de la plateforme \cite{k8s-concepts}.
+\textbf{NextAuth.js} est la bibliothèque d'authentification intégrée au frontend Next.js. Elle gère les sessions utilisateur côté client, orchestre le flux OAuth~2.0 vers GitHub, et délègue l'émission et le renouvellement des jetons JWT au backend NestJS via des callbacks configurables. Bien qu'elle soit un composant interne au frontend, son rôle de médiateur entre l'utilisateur, le fournisseur OAuth et le backend en fait un participant structurant des diagrammes d'interaction.
 
+\textbf{GitHub OAuth} est le fournisseur d'identité externe utilisé pour l'authentification déléguée. Lors d'une connexion via OAuth~2.0, GitHub valide l'identité de l'utilisateur et retourne un code d'autorisation que NextAuth.js échange contre un jeton d'accès. En complément, \textbf{GitHub} agit comme système déclencheur du pipeline CI/CD : à chaque événement \texttt{push} sur une branche configurée, il émet une requête HTTP vers l'endpoint webhook du backend NestJS, initiant automatiquement un nouveau déploiement sans intervention humaine.
+
+\subsubsection*{Acteurs systèmes d'orchestration et d'infrastructure}
+
+\textbf{Argo Workflows} est le moteur d'orchestration des pipelines de déploiement. Il reçoit les soumissions de \textit{WorkflowTemplates} depuis le backend NestJS via l'API REST Argo, puis exécute séquentiellement les trois étapes du pipeline : \textit{Build}, \textit{Provision} et \textit{DNS}. Argo Workflows interagit directement avec l'\textbf{API Kubernetes} pour créer et surveiller les ressources d'exécution de chaque étape.
+
+\textbf{Le Builder Job (Go)} est le composant exécuté sous forme de Job Kubernetes lors de l'étape \textit{Build}. Ce binaire Go orchestre la chaîne de construction complète : clonage du dépôt Git, invocation de \textbf{Railpack CLI} pour la détection du framework et la génération du plan de build, connexion au daemon \textbf{Buildkitd} pour la construction de l'image OCI, et push de l'image résultante vers le \textbf{registre interne (Registry OCI)}.
+
+\textbf{Helm} est le gestionnaire de packages Kubernetes utilisé lors de l'étape \textit{Provision}. Il déploie ou met à jour le chart Helm dédié à chaque tenant, créant l'ensemble des ressources Kubernetes nécessaires : \textit{Namespace}, \textit{Deployment}, \textit{Service}, \textit{NetworkPolicy}, \textit{ResourceQuota}, \textit{HorizontalPodAutoscaler} et \textit{ExternalSecret}.
+
+\textbf{L'API Kubernetes} est le point d'entrée central de l'infrastructure d'exécution. Elle est sollicitée par Argo Workflows, par Helm et directement par le backend NestJS pour la création, la mise à jour et la suppression de l'ensemble des ressources Kubernetes associées aux tenants \cite{k8s-concepts}.
+
+\textbf{Vault + ESO (External Secrets Operator)} constituent le sous-système de gestion des secrets. HashiCorp Vault stocke les variables d'environnement sensibles des tenants dans un moteur KV~v2 chiffré. L'External Secrets Operator synchronise ces secrets vers des ressources \textit{Kubernetes Secret} natives, qui sont ensuite injectées dans les pods applicatifs via \texttt{envFrom}, sans que les valeurs ne transitent jamais en clair.
+
+\textbf{Traefik} est le contrôleur d'entrée (\textit{Ingress Controller}) du cluster. Il assure le routage du trafic HTTP/HTTPS entrant vers les services des tenants selon les règles d'IngressRoute définies par le chart Helm, et s'intègre avec \textbf{cert-manager} pour le provisionnement et le renouvellement automatiques des certificats TLS via Let's Encrypt.
+
+\textbf{Promtail (DaemonSet) et Loki} forment le sous-système de collecte et d'indexation des journaux. Promtail, déployé en tant que DaemonSet sur chaque nœud du cluster, collecte les flux \texttt{stdout} des pods de construction et y attache des labels structurés (\texttt{build\_id}, \texttt{tenant\_id}, \texttt{log\_type}). Les journaux sont transmis à Loki pour indexation et persistance, depuis lesquels le backend NestJS les interroge via l'API \texttt{query\_range} pour les diffuser en temps réel à l'utilisateur via SSE (\textit{Server-Sent Events}).
+
+\begin{table}[htbp]
+\caption{Synthèse des acteurs du système Hostifer}
+\label{tab:acteurs}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3.2cm}|p{2.2cm}|p{2.2cm}|p{5.5cm}|}
+\hline
+\textbf{Acteur} & \textbf{Type} & \textbf{Catégorie} & \textbf{Rôle principal} \\
+\hline
+Utilisateur & Humain & Principal & Déploie et opère ses applications via le frontend Next.js \\
+\hline
+Administrateur & Humain & Secondaire & Supervise la plateforme et l'infrastructure \\
+\hline
+NextAuth.js & Système interne & Secondaire & Gère les sessions et orchestre le flux OAuth côté frontend \\
+\hline
+GitHub OAuth & Système externe & Secondaire & Fournisseur d'identité OAuth~2.0 \\
+\hline
+GitHub (webhook) & Système externe & Déclencheur & Déclenche le CI/CD via événement \texttt{push} \\
+\hline
+Argo Workflows & Système interne & Orchestrateur & Exécute les pipelines Build / Provision / DNS \\
+\hline
+Builder Job (Go) & Système interne & Automatisé & Construit et pousse l'image OCI via Railpack et Buildkitd \\
+\hline
+Railpack CLI & Système interne & Automatisé & Détecte le framework et génère le plan de build \\
+\hline
+Buildkitd & Système interne & Automatisé & Construit l'image OCI à partir du plan Railpack \\
+\hline
+Registry (OCI) & Système interne & Automatisé & Stocke les images OCI des applications \\
+\hline
+Kubernetes API & Système interne & Infrastructure & Point d'entrée pour toutes les opérations sur les ressources cluster \\
+\hline
+Helm & Système interne & Infrastructure & Provisionne les ressources Kubernetes par tenant via chart \\
+\hline
+Vault + ESO & Système interne & Sécurité & Stocke et injecte les secrets applicatifs chiffrés \\
+\hline
+cert-manager & Système interne & Infrastructure & Émet et renouvelle les certificats TLS automatiquement \\
+\hline
+Traefik & Système interne & Infrastructure & Route le trafic entrant et assure la terminaison TLS \\
+\hline
+Loki & Système interne & Observabilité & Indexe et persiste les journaux des pods \\
+\hline
+Promtail (DaemonSet) & Système interne & Observabilité & Collecte les journaux des pods et les transmet à Loki \\
+\hline
+\end{tabular}
+\end{table}
 % ------------------------------------------------------------
 \subsection{Besoins fonctionnels}
 % ------------------------------------------------------------
@@ -127,12 +191,12 @@ Le tableau~\ref{tab:besoins-non-fonctionnels} récapitule l'ensemble des besoins
 \begin{longtable}{|p{1.1cm}|p{2.3cm}|>{\raggedright\arraybackslash}p{4.8cm}|>{\raggedright\arraybackslash}p{4cm}|}
 \caption{Tableau des besoins non fonctionnels}\label{tab:besoins-non-fonctionnels}\\
 \hline
-	extbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
+\textbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
 \hline
 \endfirsthead
 
 \hline
-	extbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
+\textbf{ID} & \textbf{Catégorie} & \textbf{Description} & \textbf{Critère de satisfaction} \\
 \hline
 \endhead
 
@@ -168,7 +232,640 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 \normalsize
 
 \section{Modélisation UML des cas d'utilisation}
+% ------------------------------------------------------------
+\subsection{Cas d'utilisation détaillés}
+% ------------------------------------------------------------
 
+Les cas d'utilisation suivants sont décrits selon le format textuel standard préconisé pour les mémoires de fin d'études en informatique. Chaque fiche précise le nom du cas d'utilisation, l'acteur principal, les préconditions requises, le scénario nominal (flux de succès), les scénarios alternatifs et d'exception, ainsi que les postconditions observables à l'issue de l'interaction.
+
+% Macro de mise en forme commune pour toutes les fiches CU
+\newcommand{\cucell}[1]{\textbf{#1}}
+
+% ── CU01 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU01 — S'authentifier}
+% \label{tab:cu01}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU01 \\
+% \hline
+% \cucell{Nom} & S'authentifier \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NextAuth.js, NestJS API, GitHub OAuth, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur possède un compte enregistré sur la plateforme, ou un compte GitHub valide.
+%   \item Le service NestJS API est disponible.
+%   \item La connexion au fournisseur OAuth GitHub est opérationnelle.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à la page de connexion du frontend Next.js.
+%   \item L'utilisateur saisit son adresse email et son mot de passe, puis soumet le formulaire.
+%   \item NextAuth.js transmet les identifiants au backend NestJS via l'endpoint \texttt{POST /auth/login}.
+%   \item NestJS vérifie les identifiants contre la base de données PostgreSQL et valide le hachage du mot de passe.
+%   \item NestJS émet une paire de jetons : un jeton d'accès JWT (courte durée de vie) et un jeton de rafraîchissement (longue durée de vie).
+%   \item NextAuth.js stocke les jetons dans la session côté client et redirige l'utilisateur vers son tableau de bord.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Authentification via OAuth GitHub :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur clique sur « Continuer avec GitHub ».
+%   \item NextAuth.js redirige le navigateur vers le serveur d'autorisation GitHub OAuth.
+%   \item L'utilisateur autorise l'accès à son compte GitHub.
+%   \item GitHub retourne un code d'autorisation ; NextAuth.js l'échange contre un token d'accès GitHub.
+%   \item NestJS reçoit le profil GitHub, crée ou met à jour le compte utilisateur dans PostgreSQL, et émet les jetons JWT.
+%   \item L'utilisateur est redirigé vers son tableau de bord.
+% \end{enumerate}
+% \vspace{4pt}
+% \textbf{A2 — Jeton d'accès expiré :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item Le callback \texttt{jwt} de NextAuth.js détecte que le jeton d'accès est expiré.
+%   \item NextAuth.js appelle automatiquement \texttt{POST /auth/refresh} avec le jeton de rafraîchissement.
+%   \item NestJS valide le jeton de rafraîchissement, révoque l'ancien et émet une nouvelle paire de jetons.
+%   \item La session est mise à jour de manière transparente, sans interruption pour l'utilisateur.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Identifiants incorrects :} NestJS retourne une erreur \texttt{401 Unauthorized} ; NextAuth.js affiche un message d'erreur à l'utilisateur. \\[4pt]
+% \textbf{E2 — Jeton de rafraîchissement expiré ou révoqué :} NextAuth.js invalide la session et redirige l'utilisateur vers la page de connexion. \\[4pt]
+% \textbf{E3 — Service NestJS indisponible :} NextAuth.js retourne une erreur de connexion ; l'utilisateur est invité à réessayer ultérieurement.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur dispose d'une session active avec un jeton d'accès JWT valide.
+%   \item L'utilisateur est redirigé vers son tableau de bord personnel.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU02 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU02 — Créer un projet depuis une URL GitHub}
+% \label{tab:cu02}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU02 \\
+% \hline
+% \cucell{Nom} & Créer un projet depuis une URL GitHub \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, GitHub OAuth, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié (CU01 accompli).
+%   \item L'utilisateur a installé l'application GitHub de la plateforme sur son compte ou son organisation GitHub.
+%   \item Le dépôt GitHub cible est accessible par l'installation GitHub de la plateforme.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à la page de création de projet et saisit l'URL du dépôt GitHub.
+%   \item Le frontend transmet l'URL et les paramètres choisis (nom du projet, plan tarifaire) au backend via \texttt{POST /projects}.
+%   \item NestJS vérifie que l'installation GitHub associée à l'utilisateur a bien accès au dépôt spécifié.
+%   \item NestJS crée un enregistrement \texttt{Project} dans PostgreSQL avec le statut \texttt{CREATED}.
+%   \item NestJS enregistre un webhook sur le dépôt GitHub via l'API GitHub pour les événements \texttt{push}.
+%   \item Le frontend redirige l'utilisateur vers la page de détail du projet nouvellement créé.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — L'installation GitHub n'est pas encore configurée :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item Le frontend détecte l'absence d'installation GitHub active.
+%   \item L'utilisateur est redirigé vers la page d'installation de l'application GitHub de la plateforme.
+%   \item Après installation, l'utilisateur reprend le flux de création à l'étape 1.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Dépôt inaccessible ou URL invalide :} NestJS retourne \texttt{404 Not Found} ; le frontend affiche un message indiquant que le dépôt est introuvable ou non autorisé. \\[4pt]
+% \textbf{E2 — Nom de projet déjà utilisé :} NestJS retourne \texttt{409 Conflict} ; l'utilisateur est invité à choisir un nom différent.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item Un enregistrement \texttt{Project} est créé en base de données avec le statut \texttt{CREATED}.
+%   \item Un webhook GitHub est enregistré sur le dépôt pour les événements \texttt{push}.
+%   \item Le projet est visible dans le tableau de bord de l'utilisateur.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU03 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU03 — Configurer et déclencher un déploiement}
+% \label{tab:cu03}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU03 \\
+% \hline
+% \cucell{Nom} & Configurer et déclencher un déploiement \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, Argo Workflows, Builder Job (Go), Railpack CLI, Buildkitd, Registry OCI, Helm, Kubernetes API, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié (CU01 accompli).
+%   \item Un projet a été créé (CU02 accompli).
+%   \item Le dépôt GitHub associé au projet est non vide et contient un code source valide.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à la page du projet et clique sur « Déployer ».
+%   \item Le frontend soumet la requête de déploiement au backend via \texttt{POST /deployments}.
+%   \item NestJS crée un enregistrement \texttt{Deployment} en base avec le statut \texttt{QUEUED} et soumet un \textit{WorkflowTemplate} à Argo Workflows via son API REST.
+%   \item \textbf{Étape Build :} Argo Workflows crée un Builder Job (Go) qui clone le dépôt, invoque Railpack CLI pour détecter le framework et générer le plan de build, puis construit l'image OCI via Buildkitd et la pousse vers le registre interne. Le statut passe à \texttt{BUILDING}.
+%   \item \textbf{Étape Provision :} Argo Workflows invoque Helm pour déployer ou mettre à jour le chart Helm du tenant sur le cluster Kubernetes. Le statut passe à \texttt{PROVISIONING}.
+%   \item \textbf{Étape DNS :} Argo Workflows configure les règles d'IngressRoute Traefik et déclenche l'émission du certificat TLS via cert-manager. Le statut passe à \texttt{CONFIGURING\_DNS}.
+%   \item NestJS met à jour le statut du déploiement à \texttt{LIVE} et enregistre l'URL publique de l'application.
+%   \item Le frontend affiche la confirmation du déploiement avec l'URL live de l'application.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Redéploiement d'un projet existant :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item Si un déploiement actif existe déjà, Helm effectue une mise à jour (\texttt{helm upgrade}) plutôt qu'une installation initiale.
+%   \item L'ancien pod reste actif jusqu'à ce que le nouveau soit en état \texttt{Running}, assurant une continuité de service.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Échec de l'étape Build :} Le Builder Job retourne une erreur (dépôt invalide, framework non reconnu, erreur de compilation) ; le statut passe à \texttt{FAILED} et les journaux d'erreur sont disponibles via SSE. \\[4pt]
+% \textbf{E2 — Échec de l'étape Provision :} Helm retourne une erreur (quota dépassé, ressources insuffisantes) ; le statut passe à \texttt{FAILED}. \\[4pt]
+% \textbf{E3 — Timeout du workflow :} Argo Workflows annule le workflow après dépassement du délai maximal ; le statut passe à \texttt{CANCELLED}.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item En cas de succès : l'application est accessible à son URL publique ; le statut du déploiement est \texttt{LIVE}.
+%   \item En cas d'échec : le statut est \texttt{FAILED} ou \texttt{CANCELLED} ; l'état précédent de l'application (si existant) est préservé.
+%   \item L'historique du déploiement est conservé en base de données avec les métadonnées de chaque étape.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU04 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU04 — Consulter les journaux de build en temps réel}
+% \label{tab:cu04}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU04 \\
+% \hline
+% \cucell{Nom} & Consulter les journaux de build en temps réel \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, Loki, Promtail (DaemonSet) \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié (CU01 accompli).
+%   \item Un déploiement est en cours ou a été exécuté pour le projet concerné (CU03 déclenché).
+%   \item Promtail est déployé en tant que DaemonSet sur les nœuds du cluster et collecte les flux \texttt{stdout} des pods de construction.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à la page de détail du déploiement (ou à l'assistant de déploiement à l'étape Build).
+%   \item Le frontend ouvre une connexion SSE (\textit{Server-Sent Events}) vers l'endpoint \texttt{GET /deployments/:id/logs} du backend NestJS.
+%   \item NestJS interroge l'API Loki (\texttt{query\_range}) toutes les deux secondes, filtrant les entrées par \texttt{build\_id} et \texttt{container="main"}.
+%   \item Loki retourne les nouvelles lignes de journaux collectées par Promtail depuis le pod Builder Job.
+%   \item NestJS diffuse chaque lot de lignes au frontend via le flux SSE.
+%   \item Le frontend affiche les lignes dans l'interface de journaux en temps réel, en défilant automatiquement vers le bas.
+%   \item Lorsque le déploiement atteint un état terminal (\texttt{LIVE}, \texttt{FAILED} ou \texttt{CANCELLED}), NestJS envoie un événement de fermeture et la connexion SSE est clôturée.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Consultation des journaux d'un déploiement passé :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à l'historique des déploiements et sélectionne un déploiement terminé.
+%   \item NestJS interroge Loki avec la plage temporelle correspondant à ce déploiement.
+%   \item Les journaux sont retournés en une seule réponse (sans flux SSE continu) et affichés dans l'interface.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Loki indisponible :} NestJS retourne une erreur ; le frontend affiche un message indiquant que les journaux sont temporairement inaccessibles. \\[4pt]
+% \textbf{E2 — Interruption réseau :} Le navigateur perd la connexion SSE ; le frontend tente une reconnexion automatique après un délai configurable.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur a consulté les journaux de construction de son application.
+%   \item Les journaux restent persistés dans Loki et consultables ultérieurement.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU05 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU05 — Gérer les variables d'environnement}
+% \label{tab:cu05}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU05 \\
+% \hline
+% \cucell{Nom} & Gérer les variables d'environnement \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, Vault + ESO, Kubernetes API, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié (CU01 accompli).
+%   \item Un projet existe et l'utilisateur en est propriétaire ou membre autorisé (CU02 accompli).
+%   \item HashiCorp Vault est disponible et le moteur KV~v2 du tenant est initialisé.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à l'onglet « Variables d'environnement » de la page du projet.
+%   \item Le frontend affiche la liste des variables existantes avec leurs clés ; les valeurs sensibles sont masquées.
+%   \item L'utilisateur ajoute, modifie ou supprime une ou plusieurs variables, puis valide.
+%   \item Le frontend soumet les modifications au backend via \texttt{PUT /projects/:id/env-vars}.
+%   \item NestJS écrit les nouvelles valeurs dans le chemin KV~v2 correspondant au tenant dans HashiCorp Vault, en s'authentifiant via la méthode Kubernetes Auth.
+%   \item NestJS met à jour les métadonnées des variables (clés, types) dans PostgreSQL.
+%   \item L'External Secrets Operator détecte la mise à jour du secret Vault et synchronise la ressource \textit{Kubernetes Secret} du namespace du tenant.
+%   \item Les nouvelles variables sont disponibles dans les pods applicatifs lors du prochain redémarrage ou déploiement.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Révélation temporaire d'une valeur secrète :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur clique sur l'icône de démasquage d'une variable.
+%   \item Le frontend appelle \texttt{GET /projects/:id/env-vars/:key/reveal}.
+%   \item NestJS récupère la valeur depuis Vault et la retourne de manière chiffrée sur le canal HTTPS.
+%   \item La valeur est affichée temporairement dans l'interface puis rémasquée automatiquement.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Vault indisponible :} NestJS retourne \texttt{503 Service Unavailable} ; les variables ne sont pas modifiées. \\[4pt]
+% \textbf{E2 — Nom de variable invalide :} NestJS retourne \texttt{400 Bad Request} si la clé contient des caractères non autorisés.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item Les variables d'environnement sont mises à jour dans Vault KV~v2.
+%   \item La ressource \textit{Kubernetes Secret} du tenant est synchronisée par ESO.
+%   \item Aucune valeur sensible n'a transité en clair.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU06 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU06 — Configurer le CI/CD (auto-déploiement sur push)}
+% \label{tab:cu06}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU06 \\
+% \hline
+% \cucell{Nom} & Configurer le CI/CD (auto-déploiement sur push) \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, GitHub (webhook), Argo Workflows, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié (CU01 accompli).
+%   \item Un projet a été créé et un premier déploiement a été effectué avec succès (CU02 et CU03 accomplis).
+%   \item Un webhook GitHub est enregistré sur le dépôt (enregistré lors de CU02).
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède aux paramètres du projet et active l'option « Déploiement automatique ».
+%   \item L'utilisateur sélectionne la branche de production à surveiller (ex. \texttt{main}).
+%   \item Le frontend soumet la configuration au backend via \texttt{PATCH /projects/:id/settings}.
+%   \item NestJS enregistre la configuration CI/CD en base de données (\texttt{auto\_deploy: true}, \texttt{branch: main}).
+%   \item Lors d'un \texttt{push} ultérieur sur la branche configurée, GitHub émet une requête \texttt{POST} vers l'endpoint webhook \texttt{/webhooks/github}.
+%   \item NestJS vérifie la signature HMAC du webhook, identifie le projet concerné, et déclenche automatiquement un nouveau déploiement (flux identique à CU03 à partir de l'étape 3).
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Désactivation du CI/CD :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur désactive l'option « Déploiement automatique » dans les paramètres.
+%   \item NestJS met à jour \texttt{auto\_deploy: false} en base.
+%   \item Les événements webhook GitHub ultérieurs sont reçus mais ignorés pour ce projet.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Signature HMAC invalide :} NestJS rejette la requête webhook avec \texttt{401 Unauthorized} ; aucun déploiement n'est déclenché. \\[4pt]
+% \textbf{E2 — Déploiement déjà en cours :} NestJS détecte un déploiement actif pour le projet ; le nouveau déclenchement est mis en file d'attente ou ignoré selon la politique configurée.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item La configuration CI/CD est persistée en base de données.
+%   \item Tout \texttt{push} sur la branche configurée déclenche automatiquement un déploiement.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU07 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU07 — Gérer les membres d'une équipe}
+% \label{tab:cu07}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU07 \\
+% \hline
+% \cucell{Nom} & Gérer les membres d'une équipe \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur (propriétaire du projet) \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié et est propriétaire du projet (CU01 et CU02 accomplis).
+%   \item Le membre à inviter possède un compte enregistré sur la plateforme.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède à l'onglet « Équipe » de la page du projet.
+%   \item L'utilisateur saisit l'adresse email du membre à inviter et sélectionne son rôle (\textit{Viewer} ou \textit{Editor}).
+%   \item Le frontend soumet l'invitation au backend via \texttt{POST /projects/:id/members}.
+%   \item NestJS vérifie que l'email correspond à un compte existant, crée l'association dans PostgreSQL avec le rôle choisi.
+%   \item Le membre invité peut désormais accéder au projet avec les droits correspondant à son rôle.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Suppression d'un membre :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item Le propriétaire sélectionne un membre et clique sur « Retirer ».
+%   \item NestJS supprime l'association du membre avec le projet en base de données.
+%   \item Le membre ne peut plus accéder au projet.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Email non enregistré :} NestJS retourne \texttt{404 Not Found} ; l'utilisateur est informé que ce compte n'existe pas sur la plateforme. \\[4pt]
+% \textbf{E2 — Membre déjà présent :} NestJS retourne \texttt{409 Conflict}.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'association membre-projet est persistée en base de données avec le rôle défini.
+%   \item Le nouveau membre a accès au projet selon ses droits.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── CU08 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU08 — Supprimer un projet (déprovisionning)}
+% \label{tab:cu08}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU08 \\
+% \hline
+% \cucell{Nom} & Supprimer un projet (déprovisionning) \\
+% \hline
+% \cucell{Acteur principal} & Utilisateur (propriétaire du projet) \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, Kubernetes API, Helm, Vault + ESO, GitHub, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'utilisateur est authentifié et est propriétaire du projet (CU01 et CU02 accomplis).
+%   \item Aucun déploiement n'est en cours pour ce projet.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'utilisateur accède aux paramètres du projet et clique sur « Supprimer le projet ».
+%   \item Le frontend affiche une boîte de dialogue de confirmation demandant la saisie du nom du projet.
+%   \item L'utilisateur confirme en saisissant le nom exact du projet.
+%   \item Le frontend envoie la requête \texttt{DELETE /projects/:id} au backend NestJS.
+%   \item NestJS supprime la release Helm du tenant via \texttt{helm uninstall}, ce qui entraîne la suppression de l'ensemble des ressources Kubernetes du namespace (Deployment, Service, IngressRoute, HPA, ExternalSecret).
+%   \item NestJS supprime le namespace Kubernetes du tenant via l'API Kubernetes, ce qui entraîne la suppression de toutes les ressources restantes (NetworkPolicy, ResourceQuota, Secrets).
+%   \item NestJS supprime le chemin KV~v2 correspondant au tenant dans HashiCorp Vault.
+%   \item NestJS désactive le webhook GitHub enregistré sur le dépôt.
+%   \item NestJS supprime l'enregistrement \texttt{Project} et tous les enregistrements associés (déploiements, variables, membres) en base de données PostgreSQL.
+%   \item Le frontend redirige l'utilisateur vers son tableau de bord.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Le namespace Kubernetes est déjà absent :} NestJS ignore l'erreur \texttt{404} retournée par l'API Kubernetes et poursuit les étapes suivantes du déprovisionning.
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Confirmation incorrecte :} Le frontend bloque la soumission si le nom saisi ne correspond pas au nom du projet. \\[4pt]
+% \textbf{E2 — Déploiement en cours détecté :} NestJS retourne \texttt{409 Conflict} et refuse la suppression jusqu'à la fin du déploiement actif.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item Toutes les ressources Kubernetes du tenant sont supprimées.
+%   \item Les secrets du tenant sont effacés de Vault.
+%   \item Le webhook GitHub est désactivé.
+%   \item L'enregistrement du projet est supprimé de la base de données.
+%   \item L'application n'est plus accessible publiquement.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% ── CU09 ────────────────────────────────────────────────────
+% \begin{table}[htbp]
+% \caption{CU09 — Administrer la plateforme}
+% \label{tab:cu09}
+% \centering
+% \renewcommand{\arraystretch}{1.4}
+% \begin{tabular}{|p{3.5cm}|p{10cm}|}
+% \hline
+% \cucell{Identifiant} & CU09 \\
+% \hline
+% \cucell{Nom} & Administrer la plateforme \\
+% \hline
+% \cucell{Acteur principal} & Administrateur \\
+% \hline
+% \cucell{Acteurs secondaires} & NestJS API, Kubernetes API, Argo Workflows, PostgreSQL \\
+% \hline
+% \cucell{Préconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item L'administrateur est authentifié avec un compte disposant du rôle \texttt{ADMIN} (CU01 accompli).
+%   \item Le backend NestJS et les services d'infrastructure (Kubernetes, Argo Workflows) sont disponibles.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénario nominal} &
+% \begin{minipage}[t]{10cm}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'administrateur accède au tableau de bord d'administration.
+%   \item Le frontend interroge le backend NestJS pour récupérer la liste des tenants actifs, leur consommation de ressources (CPU, mémoire, stockage) et le nombre de déploiements par tenant.
+%   \item NestJS agrège les données depuis PostgreSQL et les métriques exposées par l'API Kubernetes.
+%   \item L'administrateur visualise les workflows Argo Workflows en cours via l'interface Argo UI intégrée.
+%   \item L'administrateur peut modifier le plan tarifaire d'un tenant, forcer la suppression d'un projet, ou suspendre un compte utilisateur via les endpoints d'administration du backend.
+%   \item Chaque action administrative est enregistrée dans le journal d'audit (\texttt{ActivityLog}) en base de données.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios alternatifs} &
+% \begin{minipage}[t]{10cm}
+% \textbf{A1 — Intervention sur un déploiement bloqué :}
+% \begin{enumerate}[nosep, left=0pt]
+%   \item L'administrateur détecte un workflow Argo en état \texttt{Running} depuis un temps anormalement long.
+%   \item L'administrateur force l'annulation du workflow depuis l'interface Argo UI.
+%   \item NestJS met à jour le statut du déploiement correspondant à \texttt{CANCELLED}.
+% \end{enumerate}
+% \end{minipage} \\
+% \hline
+% \cucell{Scénarios d'exception} &
+% \begin{minipage}[t]{10cm}
+% \textbf{E1 — Accès non autorisé :} Toute tentative d'accès aux endpoints d'administration par un utilisateur sans rôle \texttt{ADMIN} est rejetée par NestJS avec \texttt{403 Forbidden}. \\[4pt]
+% \textbf{E2 — API Kubernetes indisponible :} NestJS retourne les données disponibles depuis PostgreSQL sans les métriques temps réel du cluster, avec indication d'indisponibilité partielle.
+% \end{minipage} \\
+% \hline
+% \cucell{Postconditions} &
+% \begin{minipage}[t]{10cm}
+% \begin{itemize}[nosep, left=0pt]
+%   \item Les actions effectuées sont persistées dans le journal d'audit.
+%   \item L'état de la plateforme reflète les modifications apportées par l'administrateur.
+% \end{itemize}
+% \end{minipage} \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+% % ── Tableau récapitulatif ─────────────────────────────────
+% \begin{table}[htbp]
+% \caption{Tableau récapitulatif des cas d'utilisation (Tableau 2.3)}
+% \label{tab:cu-recap}
+% \centering
+% \renewcommand{\arraystretch}{1.3}
+% \begin{tabular}{|p{1.3cm}|p{5.5cm}|p{3.5cm}|p{2.3cm}|}
+% \hline
+% \textbf{ID} & \textbf{Nom} & \textbf{Acteur principal} & \textbf{Priorité} \\
+% \hline
+% CU01 & S'authentifier & Utilisateur & Must have \\
+% \hline
+% CU02 & Créer un projet depuis une URL GitHub & Utilisateur & Must have \\
+% \hline
+% CU03 & Configurer et déclencher un déploiement & Utilisateur & Must have \\
+% \hline
+% CU04 & Consulter les journaux de build en temps réel & Utilisateur & Must have \\
+% \hline
+% CU05 & Gérer les variables d'environnement & Utilisateur & Must have \\
+% \hline
+% CU06 & Configurer le CI/CD (auto-déploiement sur push) & Utilisateur & Should have \\
+% \hline
+% CU07 & Gérer les membres d'une équipe & Utilisateur (propriétaire) & Should have \\
+% \hline
+% CU08 & Supprimer un projet (déprovisionning) & Utilisateur (propriétaire) & Must have \\
+% \hline
+% CU09 & Administrer la plateforme & Administrateur & Must have \\
+% \hline
+% \end{tabular}
+% \end{table}
 \subsection{Diagramme de cas d'utilisation global}
 
 % Content here
@@ -222,6 +919,7 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 
 \begin{table}[h]
 	\centering
+	% github_oauth.png
 	\caption{Tableau récapitulatif des cas d'utilisation (ID, nom, acteur principal, priorité)}
 	\label{tab:2.3}
 \end{table}
@@ -250,7 +948,173 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 	\label{fig:2.3}
 \end{figure}
 
+% ------------------------------------------------------------
 \subsection{Description des entités principales}
+% ------------------------------------------------------------
+
+La modélisation des entités constitue le socle de la couche de persistance de la plateforme. Chaque entité est implémentée sous forme de modèle Prisma ORM et correspond à une table dans la base de données PostgreSQL. Les tableaux suivants décrivent, pour chaque entité principale, l'ensemble des attributs avec leurs types de données, leurs contraintes d'intégrité, et leurs relations avec les autres entités du schéma.
+
+% ── Tableau 2.4 — Entité User ───────────────────────────────
+\begin{table}[htbp]
+\caption{Description de l'entité \texttt{User}}
+\label{tab:entity-user}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique de l'utilisateur généré automatiquement \\
+\hline
+\texttt{email} & \texttt{String} & unique, non null & Adresse email de l'utilisateur, utilisée pour l'authentification \\
+\hline
+\texttt{password} & \texttt{String?} & nullable & Mot de passe haché (bcrypt) ; null si authentification OAuth uniquement \\
+\hline
+\texttt{name} & \texttt{String?} & nullable & Nom complet de l'utilisateur \\
+\hline
+\texttt{avatarUrl} & \texttt{String?} & nullable & URL de l'avatar (fourni par GitHub OAuth) \\
+\hline
+\texttt{role} & \texttt{Enum} & non null, défaut \texttt{USER} & Rôle de l'utilisateur : \texttt{USER} ou \texttt{ADMIN} \\
+\hline
+\texttt{githubId} & \texttt{String?} & unique, nullable & Identifiant GitHub de l'utilisateur ; null si inscription email \\
+\hline
+\texttt{refreshToken} & \texttt{String?} & nullable & Dernier jeton de rafraîchissement JWT émis, haché en base \\
+\hline
+\texttt{createdAt} & \texttt{DateTime} & non null, défaut \texttt{now()} & Date et heure de création du compte \\
+\hline
+\texttt{updatedAt} & \texttt{DateTime} & non null, \texttt{@updatedAt} & Date et heure de la dernière mise à jour \\
+\hline
+\multicolumn{4}{|l|}{\textbf{Relations}} \\
+\hline
+\texttt{projects} & \texttt{Project[]} & — & Projets dont l'utilisateur est propriétaire \\
+\hline
+\texttt{memberships} & \texttt{ProjectMember[]} & — & Appartenances à des projets en tant que membre d'équipe \\
+\hline
+\texttt{installations} & \texttt{GitHubInstallation[]} & — & Installations GitHub OAuth associées au compte \\
+\hline
+\texttt{activityLogs} & \texttt{ActivityLog[]} & — & Journal des actions effectuées par l'utilisateur \\
+\hline
+\texttt{notifications} & \texttt{Notification[]} & — & Notifications reçues par l'utilisateur \\
+\hline
+\end{tabular}
+\end{table}
+
+% ── Tableau 2.5 — Entité Project ────────────────────────────
+\begin{table}[htbp]
+\caption{Description de l'entité \texttt{Project}}
+\label{tab:entity-project}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique du projet \\
+\hline
+\texttt{name} & \texttt{String} & non null & Nom du projet, utilisé comme sous-domaine de l'URL publique \\
+\hline
+\texttt{slug} & \texttt{String} & unique, non null & Version normalisée du nom, utilisée dans les ressources Kubernetes et les URLs \\
+\hline
+\texttt{ownerId} & \texttt{String} & FK → \texttt{User.id}, non null & Référence à l'utilisateur propriétaire du projet \\
+\hline
+\texttt{repoUrl} & \texttt{String} & non null & URL du dépôt GitHub source \\
+\hline
+\texttt{repoName} & \texttt{String} & non null & Nom du dépôt GitHub (format \texttt{owner/repo}) \\
+\hline
+\texttt{branch} & \texttt{String} & non null, défaut \texttt{"main"} & Branche de déploiement par défaut \\
+\hline
+\texttt{framework} & \texttt{String?} & nullable & Framework détecté automatiquement lors du dernier build \\
+\hline
+\texttt{planId} & \texttt{String} & FK → \texttt{Plan.id}, non null & Plan tarifaire associé au projet (détermine les quotas de ressources) \\
+\hline
+\texttt{autoDeploy} & \texttt{Boolean} & non null, défaut \texttt{false} & Active le déploiement automatique sur événement \texttt{push} GitHub \\
+\hline
+\texttt{webhookSecret} & \texttt{String?} & nullable & Secret HMAC pour la validation des événements webhook GitHub \\
+\hline
+\texttt{installationId} & \texttt{String} & FK → \texttt{GitHubInstallation.id}, non null & Installation GitHub permettant l'accès au dépôt \\
+\hline
+\texttt{namespace} & \texttt{String?} & unique, nullable & Namespace Kubernetes alloué au projet lors du premier déploiement \\
+\hline
+\texttt{publicUrl} & \texttt{String?} & nullable & URL publique de l'application déployée \\
+\hline
+\texttt{createdAt} & \texttt{DateTime} & non null, défaut \texttt{now()} & Date et heure de création du projet \\
+\hline
+\texttt{updatedAt} & \texttt{DateTime} & non null, \texttt{@updatedAt} & Date et heure de la dernière mise à jour \\
+\hline
+\multicolumn{4}{|l|}{\textbf{Relations}} \\
+\hline
+\texttt{owner} & \texttt{User} & FK → \texttt{User} & Utilisateur propriétaire du projet \\
+\hline
+\texttt{plan} & \texttt{Plan} & FK → \texttt{Plan} & Plan tarifaire définissant les quotas de ressources \\
+\hline
+\texttt{deployments} & \texttt{Deployment[]} & — & Historique de tous les déploiements du projet \\
+\hline
+\texttt{envVars} & \texttt{EnvVar[]} & — & Variables d'environnement associées au projet \\
+\hline
+\texttt{members} & \texttt{ProjectMember[]} & — & Membres de l'équipe ayant accès au projet \\
+\hline
+\texttt{domains} & \texttt{Domain[]} & — & Domaines personnalisés associés au projet \\
+\hline
+\texttt{activityLogs} & \texttt{ActivityLog[]} & — & Journal des actions effectuées sur le projet \\
+\hline
+\end{tabular}
+\end{table}
+
+% ── Tableau 2.6 — Entité Deployment ─────────────────────────
+\begin{table}[htbp]
+\caption{Description de l'entité \texttt{Deployment}}
+\label{tab:entity-deployment}
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique du déploiement \\
+\hline
+\texttt{projectId} & \texttt{String} & FK → \texttt{Project.id}, non null & Référence au projet auquel appartient ce déploiement \\
+\hline
+\texttt{status} & \texttt{Enum} & non null, défaut \texttt{QUEUED} & État courant du déploiement (voir cycle de vie ci-dessous) \\
+\hline
+\texttt{commitSha} & \texttt{String?} & nullable & Hash du commit Git déployé \\
+\hline
+\texttt{commitMessage} & \texttt{String?} & nullable & Message du commit Git associé au déploiement \\
+\hline
+\texttt{branch} & \texttt{String} & non null & Branche Git source du déploiement \\
+\hline
+\texttt{imageTag} & \texttt{String?} & nullable & Tag de l'image OCI construite et poussée vers le registre interne \\
+\hline
+\texttt{argoWorkflowName} & \texttt{String?} & nullable & Nom du workflow Argo Workflows soumis pour ce déploiement \\
+\hline
+\texttt{buildDuration} & \texttt{Int?} & nullable & Durée de l'étape Build en secondes \\
+\hline
+\texttt{totalDuration} & \texttt{Int?} & nullable & Durée totale du déploiement (Build + Provision + DNS) en secondes \\
+\hline
+\texttt{triggeredBy} & \texttt{Enum} & non null & Origine du déclenchement : \texttt{MANUAL} ou \texttt{WEBHOOK} \\
+\hline
+\texttt{createdAt} & \texttt{DateTime} & non null, défaut \texttt{now()} & Date et heure de création de l'entrée de déploiement \\
+\hline
+\texttt{updatedAt} & \texttt{DateTime} & non null, \texttt{@updatedAt} & Date et heure de la dernière mise à jour de l'état \\
+\hline
+\texttt{finishedAt} & \texttt{DateTime?} & nullable & Date et heure de fin du déploiement (succès ou échec) \\
+\hline
+\multicolumn{4}{|l|}{\textbf{Relations}} \\
+\hline
+\texttt{project} & \texttt{Project} & FK → \texttt{Project} & Projet parent du déploiement \\
+\hline
+\texttt{steps} & \texttt{DeploymentStep[]} & — & Étapes détaillées du pipeline (Build, Provision, DNS) \\
+\hline
+\multicolumn{4}{|l|}{\textbf{Valeurs de l'énumération \texttt{DeploymentStatus}}} \\
+\hline
+\multicolumn{4}{|p{13cm}|}{\parbox[t]{13cm}{
+\raggedright
+\texttt{QUEUED} → \texttt{BUILDING} → \texttt{PROVISIONING} → \texttt{CONFIGURING\_DNS} → \texttt{LIVE}\par
+Transitions d'échec possibles depuis tout état actif : → \texttt{FAILED}\par
+Annulation possible depuis tout état actif : → \texttt{CANCELLED}
+}} \\
+\hline
+\end{tabular}
+\end{table}
 
 % Content here
 
@@ -280,6 +1144,7 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 
 \begin{figure}[h]
 	\centering
+	\fcolorbox{black}{black}{\includegraphics[width=1\linewidth]{5-Chapters/Chapter2/diagrams/github_oauth.png}}
 	\caption{Diagramme de séquence : Authentification (NextJS → NestJS → PostgreSQL → JWT)}
 	\label{fig:2.4}
 \end{figure}
