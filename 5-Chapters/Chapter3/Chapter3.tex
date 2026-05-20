@@ -45,15 +45,28 @@ La plateforme mobilise trois types de stockage complémentaires, sélectionnés 
 Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'environnement de déploiement.
 
 % ── Tableau 3.1 — Environnement de déploiement ──────────────
-\begin{table}[htbp]
-\caption{Caractéristiques de l'environnement de déploiement}
-\label{tab:infra-hardware}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{3.5cm}|p{3cm}|p{6.5cm}|}
+\begin{longtable}{|p{3.5cm}|p{3cm}|p{6.5cm}|}
+\caption{Caractéristiques de l'environnement de déploiement}
+\label{tab:infra-hardware} \\
 \hline
 \textbf{Composant} & \textbf{Paramètre} & \textbf{Valeur} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{Composant} & \textbf{Paramètre} & \textbf{Valeur} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
 
 % ── Cluster ─────────────────────────────────────────────────
 \multirow{3}{*}{\shortstack{\textbf{Cluster}\\\textbf{Kubernetes}}}
@@ -112,8 +125,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
   & OSS           & Stockage objet — artefacts occasionnels et archivage \textit{cold} \\
 \hline
 
-\end{tabular}
-\end{table}
+\end{longtable}
 
 \subsection{Outils de développement}
 
@@ -290,7 +302,6 @@ Le tableau~\ref{tab:github-repos} récapitule l'ensemble des dépôts, leurs tec
 	\label{fig:3.2}
 \end{figure}
 
-\subsection{Module d'authentification}
 
 % ------------------------------------------------------------
 \subsection{Module d'authentification}
@@ -329,8 +340,6 @@ La rotation des jetons est orchestrée dans le \textbf{callback \texttt{jwt}} de
 
 Cette architecture à deux couches — rotation au niveau NestJS pour la sécurité de l'infrastructure, et rafraîchissement automatique au niveau NextAuth.js pour la transparence de l'expérience utilisateur — garantit des sessions longues sans compromettre la sécurité des jetons.
 
-
-\subsection{Module de déploiement et orchestration Argo}
 
 % ------------------------------------------------------------
 \subsection{Module de déploiement et orchestration Argo Workflows}
@@ -403,7 +412,52 @@ Le flux complet de déclenchement d'un déploiement, depuis la réception de la 
 \hline
 
 \end{longtable}
+
+% ------------------------------------------------------------
 \subsection{Module de streaming des logs}
+% ------------------------------------------------------------
+
+Le streaming des journaux de build en temps réel constitue une fonctionnalité centrale de l'expérience utilisateur de Hostifer. Elle repose sur une architecture à deux composants distincts : l'endpoint SSE (\textit{Server-Sent Events}) exposé par le contrôleur NestJS, et le générateur asynchrone de journaux Loki implémenté dans le service \texttt{loki.service.ts}. La séparation entre ces deux couches respecte le principe de responsabilité unique : le contrôleur gère le protocole de transport SSE, tandis que le service Loki encapsule toute la logique d'interrogation et de pagination des journaux.
+
+\subsubsection*{Endpoint SSE avec le décorateur \texttt{@Sse()}}
+
+NestJS fournit un support natif du protocole SSE via le décorateur \texttt{@Sse()} du package \texttt{@nestjs/common} \cite{nestjs-sse}. Ce protocole, standardisé par le W3C et nativement supporté par les navigateurs via l'API \texttt{EventSource}, permet au serveur de pousser des messages vers le client sur une connexion HTTP persistante unidirectionnelle, sans les surcoûts protocolaires des WebSockets \cite{nestjs-sse-guide}. Il est particulièrement adapté au cas d'usage du streaming de journaux, qui est par nature unidirectionnel (serveur → client) et ne nécessite pas de communication bidirectionnelle.
+
+L'endpoint de streaming est déclaré dans \texttt{deployments.controller.ts} à la route \texttt{GET /deployments/:id/logs}, protégé par le \texttt{JwtGuard}. Le handler retourne un \texttt{Observable<MessageEvent>} de RxJS, que NestJS sérialise automatiquement en événements SSE conformes à la spécification \texttt{text/event-stream} \cite{nestjs-sse}. Chaque événement transmis au client contient un champ \texttt{data} encapsulant un objet \texttt{LogLine} sérialisé en JSON, comprenant le contenu de la ligne de journal, son timestamp nanoseconde, et les labels Loki associés.
+
+La conversion du générateur asynchrone retourné par \texttt{loki.service.ts} en \texttt{Observable} RxJS est réalisée via l'opérateur \texttt{from()} de RxJS, qui accepte nativement les itérables asynchrones. Le flux SSE est clos automatiquement lorsque le générateur asynchrone se termine, c'est-à-dire lorsque le déploiement atteint un état terminal ou lorsque Loki ne retourne plus de nouvelles entrées pour l'identifiant de build concerné.
+
+\subsubsection*{Connexion WebSocket et endpoint Loki \texttt{/tail}}
+
+La collecte des journaux depuis Loki est implémentée dans la méthode \texttt{streamDeploymentLogs(deploymentId, options)} du service \texttt{loki.service.ts}, sous la forme d'un générateur asynchrone (\texttt{async function*}) qui produit des objets \texttt{LogLine} au fur et à mesure de leur disponibilité.
+
+Loki expose un endpoint WebSocket \texttt{GET /loki/api/v1/tail} conçu pour le streaming de logs en temps réel, en contraste avec l'endpoint HTTP \texttt{GET /loki/api/v1/query\_range} utilisé pour les requêtes temporelles historiques. L'endpoint \texttt{/tail} accepte une requête LogQL et maintient une connexion WebSocket persistante, diffusant chaque nouvelle ligne de journal au fur et à mesure qu'elle est ingérée par Loki. Cette approche élimine les délais de polling et réduit significativement la surcharge réseau par rapport à des requêtes HTTP répétées.
+
+NestJS établit et gère une connexion WebSocket unique par flux de journaux (identifié par un \texttt{streamKey} dérivé de l'identifiant du déploiement). Cette gestion centralisée est assurée par le service \texttt{LokiTailPool}, qui implémente un pattern de pooling et de fan-out : plusieurs clients (\textit{subscribers}) abonnés au même flux partagent une unique connexion WebSocket vers Loki, réduisant ainsi la consommation de ressources. Chaque \textit{subscriber} maintient sa propre file d'attente d'événements (\textit{queue}) de sorte qu'un client lent ne bloque pas les autres.
+
+La connexion WebSocket est établie paresseusement, c'est-à-dire uniquement lors du premier abonnement à un flux donné. Les frames de données reçus depuis Loki sont parsés et normalisés en objets \texttt{LogLine}, puis distribués de manière asynchrone à chaque subscriber via sa file de réception. En cas de déconnexion réseau, le service implémente une stratégie de reconnexion avec backoff exponentiel, garantissant la continuité du flux en cas de défaillance transitoire.
+
+\subsubsection*{Requête LogQL et stratégie de filtrage}
+
+LogQL, le langage de requête de Loki, structure toute requête autour d'un sélecteur de flux de journaux (\textit{log stream selector}) obligatoire, suivi d'un pipeline de traitement optionnel.  Le sélecteur de flux est une chaîne de paires clé-valeur délimitée par des accolades, dont la combinaison unique identifie un flux de journaux. 
+
+La requête LogQL construite par \texttt{loki.service.ts} pour chaque déploiement est de la forme :
+
+\begin{verbatim}
+{build_id="<deployment_id>", container="main"}
+\end{verbatim}
+
+Le label \texttt{build\_id} est un label personnalisé attaché par Promtail lors de la collecte des journaux du pod Builder Job, via une règle de \textit{relabeling} dans la configuration du DaemonSet Promtail. Il permet d'isoler précisément les journaux d'un déploiement donné parmi l'ensemble des logs du cluster \cite{loki-logql-queries}. Le label \texttt{container="main"} restreint la sélection au conteneur principal du pod, excluant les conteneurs système injectés par Argo Workflows (conteneur \texttt{wait}, conteneur \texttt{init}) dont les journaux sont de nature infrastructurelle et sans intérêt pour l'utilisateur final.
+
+Cette stratégie de filtrage par labels indexés est préférable à un filtrage par pipeline (\texttt{|=}) appliqué après sélection d'un flux large, car l'application des filtres sur les labels indexés en amont du pipeline de traitement réduit significativement le volume de données à parcourir par Loki.  En ciblant directement le flux \texttt{\{build\_id, container\}}, la requête évite que Loki ne charge et ne filtre l'intégralité des journaux du namespace, ce qui serait coûteux dans un environnement multi-tenant à charge élevée.
+
+Les objets \texttt{LogLine} normalisés produits par le service Loki contiennent le contenu de la ligne de journal, son timestamp en nanosecondes, et les labels Loki associés. Le générateur \texttt{yield} ces objets un par un vers le contrôleur, lequel les diffuse au navigateur via la connexion SSE.
+
+\subsubsection*{Gestion du cycle de vie de la session WebSocket}
+
+La session WebSocket gérée par \texttt{LokiTailPool} termine son cycle de vie selon deux conditions distinctes. Premièrement, lorsque le statut du déploiement en base de données atteint un état terminal (\texttt{LIVE}, \texttt{FAILED} ou \texttt{CANCELLED}), indiquant que le pipeline Argo Workflows a conclu son exécution et qu'aucune nouvelle ligne de journal ne sera produite ; dans ce cas, le service interroge périodiquement la base de données et détecte cette transition pour fermer proprement la connexion. Deuxièmement, après une période d'inactivité détectée via le service \texttt{IntervalTicker}, qui contrôle les pauses prolongées entre les émissions de logs et émet un signal de heartbeat pour confirmer que le flux est toujours actif ; lors d'un silence prolongé sans détection de changement de statut, le générateur interprète cela comme la fin effective de la construction et termine.
+
+Dans les deux cas, la terminaison du générateur asynchrone provoque la complétion de l'\texttt{Observable} RxJS côté contrôleur, ce qui entraîne automatiquement la fermeture propre de la connexion SSE. Côté backend, lorsque le dernier subscriber se désabonne (ou que tous les clients fermés leur connexion SSE), la session WebSocket \texttt{LokiTailSession} est supprimée du pool et la connexion WebSocket vers Loki est fermée, libérant les ressources associées.
 
 % Content here
 
@@ -417,23 +471,112 @@ Le flux complet de déclenchement d'un déploiement, depuis la réception de la 
 
 \section{Implémentation du builder Go}
 
+% ------------------------------------------------------------
 \subsection{Structure du binaire}
+% ------------------------------------------------------------
 
-% Content here
+Le binaire \texttt{hostifer-builder} est organisé en cinq fichiers Go à responsabilités strictement séparées, complétés par les manifests de configuration et d'exécution Kubernetes. Cette organisation minimale reflète la philosophie du projet : un seul chemin d'exécution, sans framework, sans injection de dépendances, et sans état partagé entre les composants.
 
-\begin{figure}[h]
-	\centering
-	\caption{Arborescence du projet Go builder (main.go, git.go, railpack.go, buildkit.go, logger.go)}
-	\label{fig:3.4}
-\end{figure}
+\textbf{\texttt{main.go}} constitue le point d'entrée du programme et l'unique orchestrateur du pipeline de build. Il commence par valider l'ensemble des variables d'environnement requises via la fonction \texttt{requireEnv()}, qui retourne une erreur immédiate si l'une d'elles est absente, évitant tout démarrage dans un état indéfini. Il instancie ensuite le logger structuré, applique un contexte Go avec un \textit{timeout} global de vingt minutes sur l'ensemble du pipeline — au-delà duquel le Job est annulé et retourne un code de sortie non nul — puis enchaîne séquentiellement les trois étapes : clonage, préparation Railpack, et build Buildkit. Le programme attend six variables d'environnement à l'exécution : \texttt{REPO\_URL} (URL du dépôt à cloner), \texttt{IMAGE\_NAME} (référence complète de l'image OCI à produire), \texttt{BUILDKIT\_HOST} (adresse gRPC du daemon Buildkitd), \texttt{BUILD\_ID} et \texttt{TENANT\_ID} (identifiants utilisés pour la corrélation des journaux dans Loki), et optionnellement \texttt{WORK\_DIR} (répertoire de travail, \texttt{/tmp/build} par défaut).
 
+\textbf{\texttt{git.go}} encapsule la logique de clonage du dépôt source. La fonction \texttt{CloneRepo(ctx, repoURL, destDir, log)} supprime d'abord tout répertoire de travail existant, garantissant que les tentatives de relance du job démarrent depuis un état propre, puis exécute un clonage superficiel (\texttt{git clone --depth 1}) pour ne récupérer que le dernier commit de la branche cible. Cette approche réduit significativement le volume de données transférées pour les dépôts à historique long \cite{git-shallow}.
+
+\textbf{\texttt{railpack.go}} est le fichier le plus volumineux du projet. Il prend en charge l'intégralité de l'interaction avec Railpack CLI : exécution de \texttt{railpack prepare}, gestion des tentatives en cas d'échec transitoire via \texttt{GenerateBuildWithRetry()}, et post-traitement du plan généré via \texttt{patchRailpackPlanRunAsUser()}. Ce fichier expose également les fonctions utilitaires \texttt{injectNodeMemoryFlag()} et \texttt{nodeMemoryLimitMb()}, décrites en détail dans la section suivante.
+
+\textbf{\texttt{buildkit.go}} gère la connexion au daemon Buildkitd et l'exécution du build OCI. La fonction principale \texttt{BuildAndPush(ctx, buildkitHost, contextDir, imageName, log)} établit une connexion gRPC vers le daemon Buildkitd à l'adresse fournie par \texttt{BUILDKIT\_HOST}, charge les credentials Docker depuis la configuration runtime du conteneur, soumet le contexte de build au frontend Railpack via l'API LLB de Buildkit, et pousse l'image résultante vers le registre interne de la plateforme \cite{buildkit-client}. La progression de la construction est capturée ligne par ligne par le type \texttt{buildkitProgressLogWriter} et émise vers le logger Zap, ce qui permet à Promtail de la collecter et de la transmettre à Loki pour le streaming SSE.
+
+\textbf{\texttt{logger.go}} instancie un logger Zap en mode production via la fonction \texttt{NewLogger(buildID, tenantID string)}. Ce logger attache systématiquement les champs \texttt{build\_id} et \texttt{tenant\_id} à chaque entrée de journal émise, sous forme de JSON structuré sur \texttt{stdout}. Cette structuration est indispensable pour que les règles de \textit{relabeling} Promtail puissent extraire ces valeurs comme labels Loki indexables, permettant le filtrage précis par déploiement décrit dans la section 3.2.4 \cite{zap-logger}.
+
+L'image Docker du builder est construite en deux étapes (\textit{multi-stage build}) : une première étape compile le binaire Go dans une image builder Go officielle, et une seconde étape produit l'image runtime minimaliste contenant uniquement le binaire compilé, \texttt{git}, \texttt{curl}, les certificats CA, et le binaire \texttt{railpack} installé dans \texttt{/usr/local/bin}. Une étape de préchauffage (\textit{warmup}) Railpack est exécutée à la fin de la construction de l'image pour s'assurer que le binaire est opérationnel dès le premier démarrage du Job, sans délai d'initialisation.
+
+Le tableau~\ref{tab:builder-files} récapitule la structure du projet builder et le rôle de chaque fichier.
+
+\begin{longtable}{|p{4cm}|p{2.5cm}|p{7cm}|}
+\caption{Structure du projet builder Go}
+\label{tab:builder-files} \\
+
+\hline
+\textbf{Fichier} & \textbf{Type} & \textbf{Rôle principal} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Fichier} & \textbf{Type} & \textbf{Rôle principal} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{main.go}              & Point d'entrée   & Validation des variables d'environnement, timeout global 20 min, orchestration du pipeline \\
+\hline
+\texttt{git.go}               & Module           & Clonage superficiel du dépôt Git (\texttt{--depth 1}), nettoyage du répertoire de travail \\
+\hline
+\texttt{railpack.go}          & Module           & Exécution de \texttt{railpack prepare}, gestion des tentatives (max. 3), patch du plan généré \\
+\hline
+\texttt{buildkit.go}          & Module           & Connexion gRPC à Buildkitd, build LLB via frontend Railpack, push vers le registre OCI \\
+\hline
+\texttt{logger.go}            & Utilitaire       & Initialisation du logger Zap avec champs \texttt{build\_id} et \texttt{tenant\_id} \\
+\hline
+\texttt{Dockerfile}           & Image runtime    & Build multi-stage : compilation Go + image runtime avec \texttt{git}, \texttt{railpack}, \texttt{curl} \\
+\hline
+\texttt{go.mod}               & Dépendances      & Dépendances : \texttt{moby/buildkit}, \texttt{docker/cli}, \texttt{uber/zap}, \texttt{grpc} \\
+\hline
+
+
+\end{longtable}
+
+% ------------------------------------------------------------
 \subsection{Détection de framework}
+% ------------------------------------------------------------
 
-% Content here
+La détection automatique du framework applicatif est entièrement déléguée à Railpack, un outil open source développé par Railway et successeur de Nixpacks \cite{railpack-github}. La prise en charge des langages et frameworks dans Railpack est assurée par un système de \textit{providers}, chacun associé à un langage spécifique (Node.js, Python, PHP, Go, Ruby, Java, etc.).  Chaque provider analyse le dépôt source et détermine s'il correspond à son domaine en inspectant les fichiers présents à la racine du projet. 
 
+Le mécanisme de détection de Railpack repose sur l'analyse statique du système de fichiers du dépôt cloné, sans exécution de code applicatif. Railpack détecte automatiquement le langage (Node.js, Python, Go, PHP, Java, Ruby, etc.), le framework (Next.js, Laravel, Django, Spring Boot, etc.) et les dépendances via les fichiers de manifeste propres à chaque écosystème (\texttt{package.json}, \texttt{pyproject.toml}, \texttt{go.mod}, etc.). 
+
+Dans le builder Hostifer, la détection est déclenchée par l'invocation de la commande \texttt{railpack prepare <srcDir>} depuis la fonction \texttt{GenerateBuild()} de \texttt{railpack.go}. Cette commande produit deux fichiers dans le répertoire source : \texttt{railpack-plan.json}, qui contient le plan de build complet sérialisé en JSON, et \texttt{railpack-info.json}, qui contient les métadonnées de détection incluant le langage et le framework identifiés. Le plan de build est un objet JSON contenant l'ensemble des informations nécessaires à la génération de l'image, notamment les étapes de build (\textit{steps}), les commandes à exécuter, les dépendances entre étapes et les instructions de mise en cache. 
+
+La commande \texttt{railpack prepare} est exécutée dans la fonction \texttt{runRailpack()}, qui lance le binaire Railpack comme sous-processus Go via \texttt{exec.CommandContext}, capture sa sortie standard et son flux d'erreur, et normalise le résultat en lignes de journal émises vers le logger Zap. Si Railpack retourne un code de sortie non nul, la fonction retourne une erreur Go qui déclenche le mécanisme de tentatives implémenté dans \texttt{GenerateBuildWithRetry()}. Ce mécanisme relance l'intégralité de la phase de préparation jusqu'à trois fois (\texttt{maxAttempts = 3}), en nettoyant les fichiers de sortie partiels entre chaque tentative, pour absorber les défaillances transitoires liées à la résolution de dépendances réseau ou à des conditions de concurrence dans l'environnement Kubernetes \cite{railpack-github}.
+
+Un cas particulier est géré pour la compatibilité avec les versions antérieures de Railpack : si la première invocation échoue parce que le flag \texttt{--hide-pretty-plan} n'est pas supporté par la version installée dans l'image, \texttt{runRailpack()} relance la commande sans ce flag. Cette logique de \textit{fallback} garantit la compatibilité du builder avec différentes versions du binaire Railpack sans nécessiter de mise à jour de l'image.
+
+Le résultat de la détection — le framework identifié — est extrait du fichier \texttt{railpack-info.json} par le backend NestJS après la fin du workflow Argo, et persisté dans le champ \texttt{framework} de l'entité \texttt{Project} en base de données PostgreSQL. Cette information est ensuite affichée dans l'interface utilisateur sur la page de détail du projet, offrant à l'utilisateur une confirmation visuelle que son framework a bien été reconnu automatiquement.
+
+% ------------------------------------------------------------
 \subsection{Génération du plan Railpack}
+% ------------------------------------------------------------
 
-% Content here
+La génération du plan de build constitue la phase la plus déterminante du pipeline de construction, car elle produit la spécification complète de l'image OCI à construire. Elle se déroule en deux temps : l'invocation de Railpack CLI pour la détection et la génération du plan brut, suivie d'un post-traitement du plan JSON par le builder Go pour y appliquer des contraintes de sécurité et d'optimisation mémoire.
+
+\subsubsection*{Invocation de \texttt{railpack prepare}}
+
+La génération du plan est déclenchée par la méthode \texttt{GenerateBuild(ctx, srcDir, log)} de \texttt{railpack.go}, qui invoque la commande \texttt{railpack prepare <srcDir>} via \texttt{exec.CommandContext}. Cette commande produit deux fichiers en sortie : \texttt{railpack-plan.json}, qui contient le plan de build sérialisé, et un fichier d'information \texttt{railpack-info.json}.  Le plan de build est un objet JSON contenant l'ensemble des informations nécessaires à la génération de l'image, notamment les étapes (\textit{steps}), les commandes à exécuter séquentiellement au sein de chaque étape, les dépendances entre étapes, et les directives de mise en cache permettant à Buildkit d'exécuter les étapes indépendantes en parallèle. 
+
+La version du binaire Railpack à utiliser est contrôlable via la variable d'environnement \texttt{RAILPACK\_VERSION}. La référence de l'image frontend Railpack à transmettre à Buildkit est construite par la fonction \texttt{railpackFrontendImage()} à partir de cette version, garantissant la cohérence entre la version CLI ayant généré le plan et la version de l'image frontend interprétant ce même plan lors de la construction.
+
+L'ensemble de la phase de préparation est encapsulée dans \texttt{GenerateBuildWithRetry(ctx, srcDir, log, maxAttempts)}, qui relance l'intégralité du processus en cas d'échec, jusqu'à un maximum de trois tentatives. Entre chaque tentative, les fichiers de sortie partiels (\texttt{railpack-plan.json}, \texttt{railpack-info.json}) sont supprimés afin d'éviter que Buildkit consomme un plan corrompu ou incomplet lors d'une tentative ultérieure.
+
+\subsubsection*{Patch du plan JSON pour UID 1000}
+
+À l'issue de la génération réussie du plan, la fonction \texttt{patchRailpackPlanRunAsUser(srcDir, log)} lit, modifie et réécrit le fichier \texttt{railpack-plan.json}. Ce patch poursuit trois objectifs de sécurité et de compatibilité.
+
+Premièrement, le plan est modifié pour forcer l'exécution du processus applicatif sous l'UID \texttt{1000} et le GID \texttt{1000}. Par défaut, Railpack peut générer des images dont le processus s'exécute en tant que \texttt{root} (UID \texttt{0}), ce qui constitue une mauvaise pratique de sécurité dans un environnement multi-tenant et est incompatible avec les \textit{PodSecurityPolicies} restrictives définies par Kubernetes sur certains clusters \cite{k8s-security-context}. L'exécution sous un UID non privilégié réduit la surface d'attaque en cas de faille applicative permettant une évasion de conteneur.
+
+Deuxièmement, une étape \texttt{chown -R 1000:1000 /app} est injectée dans le plan lorsque la structure de celui-ci le permet, afin de transférer la propriété du répertoire applicatif à l'UID cible avant le démarrage du processus. Cette étape est nécessaire car les outils de build (gestionnaires de paquets, compilateurs) opèrent généralement en tant que \texttt{root} pendant la phase de construction ; sans ce transfert de propriété, le processus en UID \texttt{1000} ne pourrait pas écrire dans son propre répertoire de travail à l'exécution.
+
+Troisièmement, les commandes de démarrage (\textit{start commands}) du plan sont inspectées pour détecter les invocations de \texttt{node}, \texttt{npm} ou \texttt{yarn}. Si une telle invocation est détectée, le flag \texttt{NODE\_OPTIONS} est injecté via la fonction \texttt{injectNodeMemoryFlag()}, décrite ci-après.
+
+\subsubsection*{Injection de \texttt{NODE\_OPTIONS} pour la gestion mémoire}
+
+L'injection de la limite de tas mémoire Node.js répond à un problème spécifique aux environnements conteneurisés sous Kubernetes. Sans configuration explicite, le moteur JavaScript V8 de Node.js ne connaît pas les limites mémoire du conteneur et ne déclenche pas le garbage collector de manière agressive lorsque la consommation approche la limite du conteneur, ce qui provoque un crash OOM (\textit{Out-of-Memory Kill}) du conteneur par le noyau Linux avant que V8 n'ait pu libérer de la mémoire. 
+
+La solution implémentée dans \texttt{railpack.go} consiste à injecter la variable d'environnement \texttt{NODE\_OPTIONS} avec la valeur \texttt{--max-old-space-size=<limitMb>} dans la commande de démarrage du plan Railpack. L'utilisation de \texttt{NODE\_OPTIONS} est préférée à l'injection directe du flag dans la commande \texttt{node}, car elle est prise en compte par tous les processus Node.js enfants créés dans l'environnement, y compris ceux démarrés par \texttt{npm} ou \texttt{yarn}. 
+
+La valeur de la limite en mégaoctets est déterminée par la fonction \texttt{nodeMemoryLimitMb()}, qui lit la variable d'environnement \texttt{MEMORY\_LIMIT\_MB} exposée au conteneur par le manifest Kubernetes du Job via le mécanisme \texttt{resourceFieldRef} de Kubernetes. Cette approche rend la limite dynamique et proportionnelle aux ressources allouées au Job par le plan tarifaire du tenant, sans hard-coding d'une valeur fixe dans l'image. Node.js depuis la version 12 est dit \textit{container-aware} et peut utiliser les limites cgroups du conteneur, mais l'injection explicite de \texttt{--max-old-space-size} reste recommandée pour découpler précisément la limite du tas V8 de la limite mémoire totale du conteneur.  En l'absence de la variable \texttt{MEMORY\_LIMIT\_MB}, la fonction retourne une valeur par défaut conservative afin de garantir un comportement prévisible même sans configuration explicite.
 
 \begin{figure}[h]
 	\centering
@@ -441,15 +584,156 @@ Le flux complet de déclenchement d'un déploiement, depuis la réception de la 
 	\label{fig:3.5}
 \end{figure}
 
+% ------------------------------------------------------------
 \subsection{Construction et push de l'image via Buildkit}
+% ------------------------------------------------------------
 
-% Content here
+La construction de l'image OCI et son push vers le registre interne constituent la dernière étape du pipeline de build. Elle est entièrement implémentée dans \texttt{buildkit.go} via le client Go officiel de Buildkit, exposé par le package \texttt{github.com/moby/buildkit/client} \cite{buildkit-client}.
+
+\subsubsection*{Connexion au daemon Buildkitd}
+
+Buildkit est déployé sur le cluster Kubernetes en tant que \textit{Deployment} avec un pod Buildkitd persistant, accessible depuis les autres pods du cluster via une adresse de service Kubernetes. Le daemon Buildkitd expose son API gRPC sur un socket TCP, permettant aux clients distants de lui soumettre des requêtes de build via une connexion réseau standard. 
+
+La fonction \texttt{BuildAndPush(ctx, buildkitHost, contextDir, imageName, log)} établit la connexion au daemon via \texttt{client.New(ctx, buildkitHost)}, où \texttt{buildkitHost} est la valeur de la variable d'environnement \texttt{BUILDKIT\_HOST}. Cette variable est injectée dans le Job par le ConfigMap Kubernetes \texttt{build-configmap}, qui contient l'adresse du service Buildkitd au format \texttt{tcp://<service>:<port>}. La connexion est établie de manière asynchrone avec gestion des tentatives de reconnexion intégrée au client Buildkit.
+
+Les credentials Docker nécessaires pour pousser l'image vers le registre interne sont chargés depuis la configuration Docker runtime du conteneur via le package \texttt{github.com/docker/cli/config}, puis transmis à Buildkit sous forme de \texttt{session.AuthProvider} attaché à la requête de build. Ce mécanisme de délégation d'authentification évite que les credentials ne soient exposés dans les logs ou dans les variables d'environnement du Job.
+
+\subsubsection*{Résolution du frontend Railpack via \texttt{gateway.v0}}
+
+Buildkit distingue deux types de frontends pour l'interprétation des définitions de build \cite{buildkit-deepdive}. Le frontend \texttt{dockerfile.v0} est le frontend officiel pour les Dockerfiles, tandis que le frontend \texttt{gateway.v0} est un frontend générique permettant d'utiliser n'importe quelle image OCI comme interpréteur de build, en lui déléguant la conversion de la définition de build en LLB (\textit{Low-Level Build}). 
+
+Le builder Hostifer utilise le frontend \texttt{gateway.v0} en lui fournissant l'image frontend Railpack référencée par \texttt{railpackFrontendImage()} comme source d'interprétation. Buildkit télécharge cette image depuis GHCR si elle n'est pas déjà présente dans son cache local, l'instancie, et lui transmet le répertoire source du dépôt cloné ainsi que le fichier \texttt{railpack-plan.json} patché. Le frontend Railpack interprète ce plan et génère le graphe de dépendances LLB correspondant, que Buildkit exécute pour produire l'image OCI finale. LLB (\textit{Low-Level Build}) est le format intermédiaire binaire de Buildkit, défini comme un protocol buffer, qui représente le graphe de dépendances des opérations de build sous forme d'un DAG (\textit{Directed Acyclic Graph}) permettant l'exécution parallèle des étapes indépendantes et la réutilisation du cache de couches. 
+
+L'image résultante est poussée directement vers le registre interne OCI de la plateforme via l'option d'export \texttt{type=image,name=<imageName>,push=true,registry.insecure=true}. Le flag \texttt{registry.insecure=true} est nécessaire car le registre interne de la plateforme est exposé en HTTP sans TLS au sein du cluster, selon le modèle de registre interne non authentifié courant dans les environnements Kubernetes isolés \cite{buildkit-client}.
+
+\subsubsection*{Streaming des journaux vertex par vertex}
+
+Le suivi de la progression de la construction est assuré par le type \texttt{buildkitProgressLogWriter}, implémenté dans \texttt{buildkit.go}. Ce type implémente l'interface \texttt{io.Writer} et est passé à la fonction de solve Buildkit comme récepteur de la progression. Buildkit émet sa progression sous la forme d'une séquence de \textit{vertex} — chaque vertex correspondant à une étape atomique du graphe LLB (installation d'un package, exécution d'une commande, copie de fichiers, etc.) — accompagnés de leurs logs de sortie standard.
+
+La méthode \texttt{Write(p []byte)} reçoit ces données de progression brutes, les accumule dans un buffer interne, et émet chaque ligne complète (délimitée par \texttt{\\n}) vers le logger Zap via \texttt{log.Info()}. La méthode \texttt{Flush()} est appelée à la fin du build pour s'assurer qu'aucune ligne partielle ne reste dans le buffer. La fonction utilitaire \texttt{stripTrailingCR()} normalise les fins de ligne en supprimant les caractères \texttt{\\r} résiduels produits par certains outils de build qui utilisent le retour chariot pour l'affichage de barres de progression en terminal.
+
+Chaque ligne émise par le logger Zap est collectée par Promtail, qui l'indexe dans Loki avec les labels \texttt{build\_id} et \texttt{tenant\_id} attachés par le logger. Ces journaux deviennent ainsi immédiatement disponibles pour le streaming SSE décrit dans la section 3.2.4, offrant à l'utilisateur une visibilité en temps réel sur chaque étape de construction de son image OCI.
+
+
+
+% ============================================================
+%  Section 3.4 — Implémentation de l'infrastructure Kubernetes
+% ============================================================
 
 \section{Implémentation de l'infrastructure Kubernetes}
 
-\subsection{Chart Helm multi-tenant}
+L'infrastructure Kubernetes de Hostifer est entièrement décrite sous forme déclarative et provisionnée de manière automatisée. Chaque composant — qu'il s'agisse de l'isolation d'un tenant, du pipeline d'orchestration Argo Workflows, de la collecte des journaux ou de la gestion des certificats TLS — est défini par des manifests versionnés et déployés via GitOps. Cette section décrit l'implémentation concrète de chacun de ces composants.
 
-% Content here
+% ------------------------------------------------------------
+\subsection{Chart Helm multi-tenant}
+% ------------------------------------------------------------
+
+Le chart Helm \texttt{tenant-chart} est la pièce centrale du modèle de provisionnement de Hostifer. Chaque déploiement d'application utilisateur déclenche l'invocation de ce chart via l'étape \textit{Provision} du pipeline Argo Workflows, qui crée ou met à jour une release Helm dédiée au tenant concerné. L'ensemble des ressources Kubernetes nécessaires à l'isolation, à l'exposition et à la supervision du workload applicatif sont instanciées par ce seul chart, garantissant la reproductibilité et l'atomicité du provisionnement \cite{helm-docs}.
+
+Le modèle retenu pour Hostifer est la multi-location basée sur les namespaces (\textit{namespace-based multi-tenancy}), combinée à des NetworkPolicies pour restreindre les communications inter-namespaces. Ce modèle offre un bon équilibre entre isolation et efficacité opérationnelle sur un cluster partagé. 
+
+\subsubsection*{Ressources provisionnées par le chart}
+
+\textbf{Namespace.} Une ressource \texttt{Namespace} est créée avec le nom exact de l'identifiant du tenant (\texttt{.Values.tenant.id}), labellisée avec \texttt{hostifer.io/tenant: <tenant-id>} et \texttt{hostifer.io/managed: "true"}. Ce namespace constitue la frontière d'isolation primaire du tenant et le périmètre d'application de toutes les politiques de sécurité et de ressources.
+
+\textbf{ServiceAccount.} Un \texttt{ServiceAccount} nommé \texttt{tenant-sa} est créé avec \texttt{automountServiceAccountToken: false}. Ce réglage empêche le montage automatique du token d'API Kubernetes dans les pods du tenant, réduisant la surface d'attaque en cas de compromission applicative : un pod compromis ne peut pas, par défaut, interagir avec l'API Kubernetes du cluster \cite{k8s-security-context}.
+
+\textbf{Deployment.} Un \texttt{Deployment} nommé \texttt{<tenant-id>-app} orchestre les pods applicatifs du tenant. Le pod template applique un contexte de sécurité strict : \texttt{runAsNonRoot: true}, \texttt{runAsUser: 1000}, \texttt{fsGroup: 1000}, et \texttt{automountServiceAccountToken: false}. Ces valeurs sont cohérentes avec le patch UID appliqué par le builder Go lors de la génération du plan Railpack (section 3.3.3). Les ressources CPU et mémoire du conteneur (\texttt{requests} et \texttt{limits}) sont directement mappées depuis les valeurs \texttt{.Values.plan.cpu} et \texttt{.Values.plan.memory}, garantissant que les ressources allouées correspondent au plan tarifaire souscrit par le tenant. Une contrainte de répartition topologique (\texttt{topologySpreadConstraints}) avec \texttt{maxSkew: 1} sur le label \texttt{kubernetes.io/hostname} assure la distribution équitable des réplicas sur les nœuds disponibles du cluster, améliorant la résilience aux défaillances de nœuds. Des sondes de \textit{readiness} et de \textit{liveness} HTTP \texttt{GET /} sont configurées avec des délais initiaux respectifs de 5 et 15 secondes, permettant à Kubernetes de détecter et de redémarrer automatiquement les pods non fonctionnels.
+
+\textbf{Service.} Un \texttt{Service} de type \texttt{ClusterIP} nommé \texttt{tenant-svc} expose le port 80 vers le port applicatif configurable (\texttt{.Values.app.port}, défaut 3000). Il sélectionne les pods via les labels \texttt{app: tenant-app} et \texttt{hostifer.io/tenant: <tenant-id>}, garantissant que chaque service ne route le trafic que vers les pods appartenant au même tenant.
+
+\textbf{IngressRoute (Traefik CRD).} Une ressource \texttt{IngressRoute} de l'API \texttt{traefik.io/v1alpha1} nommée \texttt{tenant-ingress} expose l'application sur Internet. La règle de routage \texttt{Host(<tenant-subdomain>.<tenant-domain>)} achemine le trafic entrant sur le port 80 vers le service \texttt{tenant-svc:80}. Cette ressource dépend de l'installation préalable des CRDs Traefik sur le cluster et de l'existence de l'entryPoint \texttt{web} dans la configuration Traefik.
+
+\textbf{LimitRange.} Une ressource \texttt{LimitRange} nommée \texttt{tenant-limits} applique des enveloppes de ressources par conteneur dans le namespace. Elle définit des valeurs par défaut pour les \texttt{requests} et \texttt{limits} CPU et mémoire (tirées des valeurs du plan), un maximum égal aux limites du plan, et des minimums absolus de \texttt{10m} CPU et \texttt{16Mi} mémoire. Le LimitRange est un mécanisme complémentaire au ResourceQuota qui empêche la monopolisation des ressources par un objet individuel au sein d'un namespace, en s'assurant que chaque pod dispose d'une allocation minimale viable et ne dépasse pas le plafond défini. 
+
+\textbf{ResourceQuota.} Une ressource \texttt{ResourceQuota} nommée \texttt{tenant-quota} plafonne la consommation agrégée de ressources dans le namespace. Le ResourceQuota limite la consommation totale d'un namespace en définissant des plafonds durs sur les \texttt{requests.cpu}, \texttt{requests.memory}, \texttt{limits.cpu} et \texttt{limits.memory}, ainsi que sur le nombre total de pods.  Le chart fixe également à zéro le quota de \texttt{persistentvolumeclaims}, interdisant explicitement la création de volumes persistants par les applications stateful — cohérent avec le positionnement de Hostifer sur les applications stateless HTTP. Les compteurs d'objets sont aussi bornés : 10 \texttt{Secrets} et 10 \texttt{ConfigMaps} maximum par namespace, prévenant les abus de l'API Kubernetes par un tenant malveillant.
+
+\textbf{NetworkPolicies (×4).} Le chart crée quatre \texttt{NetworkPolicies} dont l'action combinée implémente un modèle \textit{allowlist} strict \cite{k8s-network-policy}. La séquence correcte de durcissement d'un namespace multi-tenant commence par la création d'une NetworkPolicy \textit{default-deny}, puis l'ajout de règles d'autorisation explicites pour chaque flux légitime.  Les quatre politiques sont les suivantes :
+
+\begin{enumerate}
+  \item \textbf{\texttt{default-deny-all}} — appliquée à tous les pods du namespace (\texttt{podSelector: \{\}}), elle bloque l'intégralité du trafic entrant et sortant par défaut, en spécifiant les types \texttt{Ingress} et \texttt{Egress} sans aucune règle d'autorisation. C'est le socle de la politique d'isolement inter-tenant.
+  \item \textbf{\texttt{allow-traefik-ingress}} — autorise le trafic entrant uniquement depuis les pods situés dans le namespace Traefik, identifié par le label \texttt{kubernetes.io/metadata.name = .Values.traefik.namespace}. Cette règle garantit que les pods applicatifs ne sont joignables que via l'Ingress Controller et non directement depuis d'autres namespaces.
+  \item \textbf{\texttt{allow-dns-egress}} — autorise le trafic sortant vers les ports UDP/53 et TCP/53 pour permettre la résolution DNS depuis les pods applicatifs, indispensable à toute connexion réseau sortante.
+  \item \textbf{\texttt{allow-internet-egress}} — autorise le trafic sortant vers \texttt{0.0.0.0/0} en excluant les plages RFC1918 (\texttt{10.0.0.0/8}, \texttt{172.16.0.0/12}, \texttt{192.168.0.0/16}). Cette règle permet aux applications tenantes d'appeler des APIs externes sur Internet tout en bloquant les tentatives d'accès aux ressources internes du cluster ou du réseau privé de l'hébergeur, renforçant l'isolation réseau inter-tenant.
+\end{enumerate}
+
+\subsubsection*{Schéma de valeurs et convention de nommage}
+
+Le chart est entièrement paramétrable via un fichier \texttt{values.yaml} structuré en quatre blocs : \texttt{tenant} (identifiant, sous-domaine, domaine), \texttt{app} (image OCI, port, réplicas, variables d'environnement), \texttt{plan} (ressources CPU/mémoire et quotas namespace), et \texttt{traefik} (namespace de l'Ingress Controller). Les ressources Kubernetes adoptent une convention de nommage explicite et déterministe : le Deployment est nommé \texttt{<tenant-id>-app}, le Service \texttt{tenant-svc}, le ServiceAccount \texttt{tenant-sa}, et le Namespace prend exactement la valeur de \texttt{tenant.id}. Cette convention permet à Argo Workflows et au backend NestJS de référencer les ressources par leur nom prévisible sans avoir à interroger l'API Kubernetes pour les découvrir.
+
+Le tableau~\ref{tab:helm-resources} récapitule l'ensemble des ressources créées par le chart et leurs paramètres clés.
+
+\begin{longtable}{|p{3cm}|p{3cm}|p{7cm}|}
+\caption{Ressources Kubernetes provisionnées par le chart \texttt{tenant-chart}}
+\label{tab:helm-resources} \\
+
+\hline
+\textbf{Kind} & \textbf{Nom} & \textbf{Rôle et paramètres clés} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Kind} & \textbf{Nom} & \textbf{Rôle et paramètres clés} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{Namespace}
+  & \texttt{<tenant-id>}
+  & Frontière d'isolation primaire du tenant ; labels \texttt{hostifer.io/tenant} et \texttt{hostifer.io/managed} \\
+\hline
+\texttt{ServiceAccount}
+  & \texttt{tenant-sa}
+  & Compte de service sans montage automatique de token API (\texttt{automountServiceAccountToken: false}) \\
+\hline
+\texttt{Deployment}
+  & \texttt{<tenant-id>-app}
+  & Workload applicatif ; UID 1000, \texttt{runAsNonRoot}, \texttt{topologySpreadConstraints}, sondes readiness/liveness \\
+\hline
+\texttt{Service}
+  & \texttt{tenant-svc}
+  & Endpoint ClusterIP stable ; port 80 → \texttt{app.port} \\
+\hline
+\texttt{IngressRoute}
+  & \texttt{tenant-ingress}
+  & Route Traefik \texttt{Host(<subdomain>.<domain>)} → \texttt{tenant-svc:80} \\
+\hline
+\texttt{LimitRange}
+  & \texttt{tenant-limits}
+  & Enveloppe ressources par conteneur ; min CPU \texttt{10m}, min RAM \texttt{16Mi}, max = limites du plan \\
+\hline
+\texttt{ResourceQuota}
+  & \texttt{tenant-quota}
+  & Plafonds agrégés namespace ; PVC = 0, Secrets $\leq$ 10, ConfigMaps $\leq$ 10 \\
+\hline
+\texttt{NetworkPolicy}
+  & \texttt{default-deny-all}
+  & Refus total du trafic entrant et sortant par défaut \\
+\hline
+\texttt{NetworkPolicy}
+  & \texttt{allow-traefik-ingress}
+  & Entrée autorisée depuis le namespace Traefik uniquement \\
+\hline
+\texttt{NetworkPolicy}
+  & \texttt{allow-dns-egress}
+  & Sortie autorisée vers DNS UDP/TCP 53 \\
+\hline
+\texttt{NetworkPolicy}
+  & \texttt{allow-internet-egress}
+  & Sortie autorisée vers Internet public ; RFC1918 bloquées \\
+\hline
+\texttt{Pod} (test hook)
+  & \texttt{<release>-test-connection}
+  & Validation post-install : \texttt{wget} HTTP vers \texttt{tenant-svc} depuis l'intérieur du namespace \\
+\hline
+
+\end{longtable}
 
 \begin{figure}[h]
 	\centering
@@ -457,9 +741,38 @@ Le flux complet de déclenchement d'un déploiement, depuis la réception de la 
 	\label{fig:3.6}
 \end{figure}
 
+% ------------------------------------------------------------
 \subsection{Pipeline Argo Workflows}
+% ------------------------------------------------------------
 
-% Content here
+Argo Workflows est déployé sur le cluster ACK dans le namespace \texttt{hostifer-system} via son chart Helm officiel. Sa configuration est ajustée via un fichier \texttt{values.yaml} dédié qui restreint le périmètre d'exécution du contrôleur au seul namespace \texttt{hostifer-system} (\texttt{workflowNamespaces: [hostifer-system]}), active le mode d'authentification client (\texttt{--auth-mode=client}) pour l'accès au serveur API Argo, et expose le serveur Argo en mode \texttt{ClusterIP} sans exposition publique directe \cite{argo-install}. Deux \texttt{WorkflowTemplates} distincts définissent les pipelines de déploiement et de suppression de la plateforme.
+
+\subsubsection*{WorkflowTemplate de déploiement : \texttt{hostifer-deploy}}
+
+Le \texttt{WorkflowTemplate} nommé \texttt{hostifer-deploy} orchestre le cycle de vie complet d'un déploiement applicatif en trois étapes séquentielles. Il est déclenché par le backend NestJS via une requête \texttt{POST} à l'API REST Argo, avec injection des paramètres dynamiques propres à chaque déploiement.
+
+\textbf{Paramètres dynamiques.} Le template déclare cinq paramètres d'entrée injectés par le backend NestJS à chaque invocation : \texttt{repo\_url} (URL du dépôt Git à construire), \texttt{subdomain} (sous-domaine public de l'application), \texttt{port} (port d'écoute de l'application), \texttt{tenant\_id} (identifiant unique du tenant, utilisé comme nom de release Helm et de namespace), et \texttt{image\_name} (référence complète de l'image OCI à construire et déployer). Ces paramètres sont référencés dans les templates de chaque étape via la syntaxe \texttt{\{\{workflow.parameters.<name>\}\}}, garantissant l'isolation complète des données entre workflows concurrents.
+
+\textbf{Politiques de cycle de vie.} Le \texttt{WorkflowTemplate} configure deux politiques de gestion du cycle de vie des pods et des workflows. La politique \texttt{podGC} avec la stratégie \texttt{OnPodCompletion} déclenche la suppression des pods immédiatement après leur complétion, libérant les ressources du cluster sans attendre \cite{argo-pod-gc}. La stratégie \texttt{ttlStrategy} définit des durées de rétention différenciées : 0 seconde après succès (suppression immédiate du workflow), 3600 secondes (1 heure) après échec pour permettre l'inspection des journaux, et 10 secondes pour toute autre complétion.
+
+\textbf{Étape 1 — Build.} L'étape \textit{Build} exécute le conteneur \texttt{ghcr.io/hostifer/builder-job:latest} décrit dans la section 3.3. Les variables d'environnement requises par le binaire Go (\texttt{REPO\_URL}, \texttt{IMAGE\_NAME}, \texttt{BUILDKIT\_HOST}, \texttt{BUILD\_ID}, \texttt{TENANT\_ID}) sont injectées depuis les paramètres du workflow, à l'exception de \texttt{BUILDKIT\_HOST} qui est codé en dur avec l'adresse du service Buildkitd interne au cluster (\texttt{tcp://buildkitd.hostifer-system.svc.cluster.local:1234}). Les ressources allouées au pod de build sont dimensionnées pour absorber les workloads de compilation intensifs : 500m CPU en requête et 2 cœurs en limite, 512\,Mi mémoire en requête et 2\,Gi en limite.
+
+\textbf{Étape 2 — Provision.} L'étape \textit{Provision} utilise l'image officielle \texttt{alpine/helm:3.14.0} pour invoquer \texttt{helm install} avec le chart OCI \texttt{oci://ghcr.io/hostifer/tenant-chart}. Les paramètres Helm sont passés via des flags \texttt{--set} construits à partir des paramètres du workflow (\texttt{tenant.id}, \texttt{tenant.subdomain}, \texttt{app.image}, \texttt{app.port}). Le flag \texttt{--create-namespace} délègue la création du namespace à Helm, le flag \texttt{--wait} maintient le pod \textit{Provision} en cours d'exécution jusqu'à ce que le \texttt{Deployment} du tenant soit en état \texttt{Ready}, et \texttt{--timeout 2m} impose une limite de temps pour éviter les blocages indéfinis. Les credentials GHCR pour le pull du chart OCI sont montés depuis le \texttt{Secret} \texttt{ghcr-login-secret} via un volume \texttt{docker-config}, copié dans le répertoire de configuration Helm (\texttt{/root/.config/helm/registry/config.json}) au démarrage du conteneur.
+
+\textbf{Étape 3 — DNS.} L'étape \textit{DNS} exécute le conteneur \texttt{ghcr.io/hostifer/create-dns-job:latest}, un binaire Go dédié à la création de l'enregistrement DNS du sous-domaine de l'application déployée. Le sous-domaine est passé comme argument positionnel au conteneur. Les credentials Cloudflare (token API, zone ID) sont injectés via \texttt{envFrom} depuis le \texttt{Secret} \texttt{cloudflare-secret}, évitant toute exposition de credentials dans les manifests versionnés.
+
+\subsubsection*{WorkflowTemplate de suppression : \texttt{hostifer-delete}}
+
+Le \texttt{WorkflowTemplate} \texttt{hostifer-delete} orchestre la suppression complète des ressources d'un tenant. Contrairement au pipeline de déploiement dont les étapes sont séquentielles, les trois étapes de suppression sont exécutées \textbf{en parallèle} pour minimiser le temps total de déprovisionning.
+
+\textbf{Étape 1 — Uninstall (parallèle).} Invoque \texttt{helm uninstall <release\_name>} avec \texttt{--wait} et \texttt{--timeout 2m}, supprimant l'ensemble des ressources Kubernetes créées par la release Helm du tenant (Deployment, Service, IngressRoute, NetworkPolicies, ResourceQuota, LimitRange, ExternalSecret, ServiceAccount).
+
+\textbf{Étape 2 — Delete DNS (parallèle).} Exécute le conteneur \texttt{ghcr.io/hostifer/delete-dns-job:latest} pour supprimer l'enregistrement DNS Cloudflare associé au sous-domaine du tenant, avec les mêmes credentials injectés via \texttt{envFrom}.
+
+\textbf{Étape 3 — Delete Registry Image (parallèle).} Exécute un conteneur \texttt{alpine:3.20} avec un script shell qui résout le digest SHA256 de l'image OCI du tenant dans le registre interne via l'API HTTP Registry v2, puis émet une requête \texttt{DELETE} pour supprimer le manifest correspondant. Cette étape libère l'espace disque du registre interne après suppression du tenant.
+
+\textbf{Handler \texttt{onExit}.} Le template \texttt{nextjs-reconcile} est déclaré comme handler \texttt{onExit} du pipeline de suppression. Il est exécuté systématiquement à l'issue du workflow, qu'il soit en succès ou en échec, et déclenche une réconciliation de l'état affiché dans le frontend Next.js pour refléter la suppression effective du projet.
+
 
 \begin{figure}[h]
 	\centering

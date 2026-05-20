@@ -41,15 +41,29 @@ Pour Hostifer, l'analyse des diagrammes de séquence et des flux d'interaction a
 
 \textbf{Promtail (DaemonSet) et Loki} forment le sous-système de collecte et d'indexation des journaux. Promtail, déployé en tant que DaemonSet sur chaque nœud du cluster, collecte les flux \texttt{stdout} des pods de construction et y attache des labels structurés (\texttt{build\_id}, \texttt{tenant\_id}, \texttt{log\_type}). Les journaux sont transmis à Loki pour indexation et persistance, depuis lesquels le backend NestJS les interroge via l'API \texttt{query\_range} pour les diffuser en temps réel à l'utilisateur via SSE (\textit{Server-Sent Events}).
 
-\begin{table}[htbp]
-\caption{Synthèse des acteurs du système Hostifer}
-\label{tab:acteurs}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{3.2cm}|p{2.2cm}|p{2.2cm}|p{5.5cm}|}
+\begin{longtable}{|p{3.2cm}|p{2.2cm}|p{2.2cm}|p{5.5cm}|}
+\caption{Synthèse des acteurs du système Hostifer}
+\label{tab:acteurs} \\
 \hline
 \textbf{Acteur} & \textbf{Type} & \textbf{Catégorie} & \textbf{Rôle principal} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{Acteur} & \textbf{Type} & \textbf{Catégorie} & \textbf{Rôle principal} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
 Utilisateur & Humain & Principal & Déploie et opère ses applications via le frontend Next.js \\
 \hline
 Administrateur & Humain & Secondaire & Supervise la plateforme et l'infrastructure \\
@@ -84,8 +98,8 @@ Loki & Système interne & Observabilité & Indexe et persiste les journaux des p
 \hline
 Promtail (DaemonSet) & Système interne & Observabilité & Collecte les journaux des pods et les transmet à Loki \\
 \hline
-\end{tabular}
-\end{table}
+
+\end{longtable}
 % ------------------------------------------------------------
 \subsection{Besoins fonctionnels}
 % ------------------------------------------------------------
@@ -108,15 +122,29 @@ Les besoins fonctionnels décrivent l'ensemble des services que le système doit
 
 Le tableau~\ref{tab:besoins-fonctionnels} synthétise l'ensemble des besoins fonctionnels avec leur identifiant, leur description, leur priorité MoSCoW et l'acteur concerné.
 
-\begin{table}[htbp]
-\caption{Tableau des besoins fonctionnels}
-\label{tab:besoins-fonctionnels}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{1.1cm}|p{5.5cm}|p{2cm}|p{3.5cm}|}
+\begin{longtable}{|p{1.1cm}|p{5.5cm}|p{2cm}|p{3.5cm}|}
+\caption{Tableau des besoins fonctionnels}
+\label{tab:besoins-fonctionnels} \\
 \hline
 \textbf{ID} & \textbf{Description} & \textbf{Priorité} & \textbf{Acteur concerné} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{ID} & \textbf{Description} & \textbf{Priorité} & \textbf{Acteur concerné} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
 BF-01 & S'inscrire avec email/mot de passe & Must have & Développeur \\
 \hline
 BF-02 & S'authentifier via OAuth GitHub & Must have & Développeur \\
@@ -157,8 +185,8 @@ BF-19 & Visualiser les workflows Argo en cours & Should have & Administrateur \\
 \hline
 BF-20 & Configurer un domaine personnalisé & Could have & Développeur \\
 \hline
-\end{tabular}
-\end{table}
+
+\end{longtable}
 
 % ------------------------------------------------------------
 \subsection{Besoins non fonctionnels}
@@ -955,15 +983,29 @@ Les cas d'utilisation suivants sont décrits selon le format textuel standard pr
 La modélisation des entités constitue le socle de la couche de persistance de la plateforme. Chaque entité est implémentée sous forme de modèle Prisma ORM et correspond à une table dans la base de données PostgreSQL. Les tableaux suivants décrivent, pour chaque entité principale, l'ensemble des attributs avec leurs types de données, leurs contraintes d'intégrité, et leurs relations avec les autres entités du schéma.
 
 % ── Tableau 2.4 — Entité User ───────────────────────────────
-\begin{table}[htbp]
-\caption{Description de l'entité \texttt{User}}
-\label{tab:entity-user}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\begin{longtable}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\caption{Description de l'entité \texttt{User}}
+\label{tab:entity-user} \\
 \hline
 \textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
 \texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique de l'utilisateur généré automatiquement \\
 \hline
 \texttt{email} & \texttt{String} & unique, non null & Adresse email de l'utilisateur, utilisée pour l'authentification \\
@@ -996,19 +1038,33 @@ La modélisation des entités constitue le socle de la couche de persistance de 
 \hline
 \texttt{notifications} & \texttt{Notification[]} & — & Notifications reçues par l'utilisateur \\
 \hline
-\end{tabular}
-\end{table}
+
+\end{longtable}
 
 % ── Tableau 2.5 — Entité Project ────────────────────────────
-\begin{table}[htbp]
-\caption{Description de l'entité \texttt{Project}}
-\label{tab:entity-project}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\begin{longtable}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\caption{Description de l'entité \texttt{Project}}
+\label{tab:entity-project} \\
 \hline
 \textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
 \texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique du projet \\
 \hline
 \texttt{name} & \texttt{String} & non null & Nom du projet, utilisé comme sous-domaine de l'URL publique \\
@@ -1057,19 +1113,33 @@ La modélisation des entités constitue le socle de la couche de persistance de 
 \hline
 \texttt{activityLogs} & \texttt{ActivityLog[]} & — & Journal des actions effectuées sur le projet \\
 \hline
-\end{tabular}
-\end{table}
+
+\end{longtable}
 
 % ── Tableau 2.6 — Entité Deployment ─────────────────────────
-\begin{table}[htbp]
-\caption{Description de l'entité \texttt{Deployment}}
-\label{tab:entity-deployment}
-\centering
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\begin{longtable}{|p{3cm}|p{2.5cm}|p{3.5cm}|p{4cm}|}
+\caption{Description de l'entité \texttt{Deployment}}
+\label{tab:entity-deployment} \\
 \hline
 \textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
 \hline
+\endfirsthead
+
+\hline
+\textbf{Attribut} & \textbf{Type} & \textbf{Contraintes} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
 \texttt{id} & \texttt{String} & PK, unique, \texttt{cuid()} & Identifiant unique du déploiement \\
 \hline
 \texttt{projectId} & \texttt{String} & FK → \texttt{Project.id}, non null & Référence au projet auquel appartient ce déploiement \\
@@ -1113,8 +1183,8 @@ Transitions d'échec possibles depuis tout état actif : → \texttt{FAILED}\par
 Annulation possible depuis tout état actif : → \texttt{CANCELLED}
 }} \\
 \hline
-\end{tabular}
-\end{table}
+
+\end{longtable}
 
 % Content here
 
