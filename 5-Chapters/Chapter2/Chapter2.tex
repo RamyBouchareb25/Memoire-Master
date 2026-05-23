@@ -5,7 +5,7 @@
 La phase de recueil et de spécification des besoins constitue le fondement de toute démarche d'ingénierie logicielle rigoureuse. Elle permet d'établir un contrat clair entre les parties prenantes et l'équipe de développement, en formalisant les attentes fonctionnelles et les contraintes non fonctionnelles du système. Dans le cadre de Hostifer, cette phase revêt une importance particulière, car la plateforme doit répondre simultanément aux exigences d'une infrastructure multi-tenant à haute disponibilité, aux contraintes réglementaires algériennes, et aux attentes d'utilisabilité propres aux développeurs. Les besoins ont été recueillis par une analyse itérative combinant l'étude des solutions existantes (menée au chapitre précédent) et la modélisation des cas d'usage réels identifiés lors de la conception.
 
 % ------------------------------------------------------------
-\% ------------------------------------------------------------
+% ------------------------------------------------------------
 \subsection{Identification des acteurs}
 % ------------------------------------------------------------
 
@@ -1321,14 +1321,126 @@ Annulation possible depuis tout état actif : → \texttt{CANCELLED}
 	\label{fig:2.15}
 \end{figure}
 
+% ============================================================
+%  Section 2.6
+% ============================================================
+
 \section{Choix technologiques}
 
 \subsection{Justification des technologies retenues}
 
-% Content here
+Les choix technologiques de Hostifer résultent d'une évaluation comparative systématique des alternatives disponibles pour chaque composant de la plateforme. Chaque décision a été guidée par trois critères prioritaires : l'adéquation fonctionnelle aux exigences définies dans la section 2.1, la maturité et la maintenabilité à long terme, et la cohérence de l'ensemble de la pile technologique. Le Tableau~\ref{tab:tech-choices} synthétise ces choix avec leurs justifications et les alternatives considérées.
 
-\begin{table}[h]
-	\centering
-	\caption{Tableau des choix technologiques (composant, technologie retenue, alternatives considérées, justification du choix)}
-	\label{tab:2.8}
-\end{table}
+\begin{longtable}{|p{2.8cm}|p{2.5cm}|p{2.5cm}|p{5.2cm}|}
+\caption{Tableau des choix technologiques}
+\label{tab:tech-choices} \\
+
+\hline
+\textbf{Composant} & \textbf{Technologie retenue} & \textbf{Alternatives considérées} & \textbf{Justification du choix} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Composant} & \textbf{Technologie retenue} & \textbf{Alternatives considérées} & \textbf{Justification du choix} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+Frontend
+  & Next.js (TypeScript)
+  & Nuxt.js, SvelteKit, Remix
+  & Rendu hybride SSR/SSG natif, écosystème React mature, intégration NextAuth.js pour la gestion des sessions et des flux OAuth \\
+\hline
+Backend API
+  & NestJS (TypeScript)
+  & Express.js, Fastify, Hono
+  & Architecture modulaire par domaine fonctionnel, injection de dépendances native, support SSE via \texttt{@Sse()}, décorateurs Passport pour les stratégies d'authentification, structuration facilitant la maintenabilité sur des équipes de petite taille \cite{nestjs-auth} \\
+\hline
+ORM
+  & Prisma
+  & TypeORM, Drizzle, Sequelize
+  & Schéma déclaratif centralisé (\texttt{schema.prisma}), client TypeScript auto-généré avec sécurité de type complète, migrations déterministes via \texttt{prisma migrate}, écosystème le plus mature pour NestJS \cite{prisma-docs} \\
+\hline
+Base de données
+  & PostgreSQL
+  & MySQL, MongoDB, CockroachDB
+  & Système relationnel de référence avec support natif des transactions ACID, des index partiels et des requêtes JSON ; support natif de Prisma et de la plupart des outils d'observabilité \cite{postgresql-docs} \\
+\hline
+Orchestration de conteneurs
+  & Kubernetes (ACK)
+  & Docker Swarm, Nomad, k3s
+  & Standard industriel CNCF pour l'orchestration multi-tenant, support natif des primitives d'isolation (Namespace, NetworkPolicy, ResourceQuota, HPA, VPA), intégration native avec l'ensemble de l'écosystème cloud-native \cite{k8s-concepts} \\
+\hline
+Pipeline CI/CD tenant
+  & Argo Workflows
+  & Tekton, Jenkins X, GitHub Actions (self-hosted)
+  & Orchestration de workflows Kubernetes-native, interface UI intégrée, paramétrage dynamique via \textit{WorkflowTemplates}, gestion fine des politiques de cycle de vie des pods (\texttt{podGC}, \texttt{ttlStrategy}) \cite{argo-rest-api} \\
+\hline
+Outil de build d'images OCI
+  & Buildkit + Railpack
+  & Kaniko, BuildKit seul, Buildah, Cloud Native Buildpacks
+  & Buildkit assure la construction parallèle avec cache de couches efficace ; Railpack ajoute la détection automatique de framework sans Dockerfile requis, éliminant la friction d'onboarding pour les développeurs \cite{buildkit-client}\cite{railpack-github} \\
+\hline
+Langage du builder
+  & Go
+  & Python, Node.js, Shell
+  & Compilation en binaire statique sans dépendances runtime, performance élevée pour les opérations I/O intensive (clonage Git, appels gRPC BuildKit), démarrage quasi instantané comme Job Kubernetes \cite{go-docs} \\
+\hline
+Packaging d'infrastructure
+  & Helm (charts OCI)
+  & Kustomize, Terraform, Pulumi
+  & Templating déclaratif paramétrable, distribution via registre OCI (GHCR), rollback natif, écosystème chart le plus mature pour Kubernetes \cite{helm-docs} \\
+\hline
+Livraison continue (GitOps)
+  & ArgoCD
+  & Flux CD, Jenkins X
+  & Réconciliation continue de l'état déclaré (dépôt Git) vers l'état réel du cluster, interface de visualisation des diffs, gestion des rollbacks, modèle GitOps natif \cite{gitops-principles} \\
+\hline
+Ingress Controller
+  & Traefik
+  & Nginx Ingress, HAProxy, Envoy
+  & Support natif des CRDs \texttt{IngressRoute} pour le routage dynamique par sous-domaine, rechargement de configuration à chaud sans interruption de service, intégration native avec cert-manager pour la gestion TLS \cite{cert-manager-docs} \\
+\hline
+Gestion des certificats TLS
+  & cert-manager + Let's Encrypt
+  & Gestion manuelle, AWS ACM
+  & Émission et renouvellement automatiques des certificats X.509, support du challenge DNS-01 Cloudflare pour les wildcards, intégration Kubernetes native via CRDs \cite{cert-manager-acme} \\
+\hline
+Gestion des secrets
+  & HashiCorp Vault + ESO
+  & Kubernetes Secrets (natifs), AWS Secrets Manager, Sealed Secrets
+  & Chiffrement KV v2 des secrets applicatifs, authentification Kubernetes Auth native, synchronisation automatique vers les Kubernetes Secrets via External Secrets Operator sans exposition des valeurs en clair \cite{loki-http-api} \\
+\hline
+Collecte des journaux
+  & Promtail + Loki
+  & Elasticsearch + Fluentd (EFK), Datadog
+  & Stack légère conçue pour les environnements Kubernetes, indexation par labels (sans index full-text coûteux), interrogation LogQL expressive, intégration native avec Grafana pour les dashboards \cite{promtail-scraping} \\
+\hline
+Collecte des métriques
+  & Prometheus + Grafana
+  & Datadog, New Relic, InfluxDB
+  & Standard CNCF pour la collecte de métriques Kubernetes, scraping via ServiceMonitors, exposition de métriques personnalisées au HPA via Prometheus Adapter, dashboards Grafana configurables \cite{prometheus-operator} \\
+\hline
+DNS externe
+  & Cloudflare (API)
+  & Route 53, Gandi, OVH
+  & API REST fiable et documentée, support du challenge DNS-01 ACME pour cert-manager, latence de propagation DNS parmi les plus faibles du marché, tarification gratuite pour la gestion DNS \cite{cert-manager-cloudflare} \\
+\hline
+Fournisseur cloud
+  & Alibaba Cloud ACK
+  & AWS EKS, Google GKE, infrastructure bare-metal
+  & Seul fournisseur hyperscaler disposant d'une infrastructure de datacenter en Algérie, permettant la conformité aux lois 18-07 et 25-11 sur la résidence des données ; service Kubernetes managé certifié CNCF avec Cluster Autoscaler intégré \cite{ack-overview} \\
+\hline
+Registre OCI interne
+  & Distribution (registry:2)
+  & Harbor, Quay.io, GHCR
+  & Registre léger déployable en intra-cluster sans authentification (HTTP interne), éliminant la latence de pull depuis un registre externe lors du déploiement des images construites par Buildkit \\
+\hline
+
+\end{longtable}

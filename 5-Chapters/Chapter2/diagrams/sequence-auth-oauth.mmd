@@ -1,0 +1,72 @@
+---
+title: "Fig 2.4b — Authentification OAuth GitHub"
+---
+sequenceDiagram
+    autonumber
+
+    actor       User        as Utilisateur
+    participant FE          as Next.js Frontend
+    participant NA          as NextAuth.js
+    participant BE          as NestJS API
+    participant DB          as PostgreSQL
+    participant GH          as GitHub OAuth
+    participant JW          as JWT Service
+
+    User->>FE: Clique "Continuer avec GitHub"
+    FE->>NA: signIn("github")
+    NA->>GH: Redirect → github.com/login/oauth/authorize
+    activate GH
+    GH-->>User: Page de consentement GitHub
+
+    User->>GH: Autorise l'application
+    GH-->>NA: Callback avec code OAuth
+    deactivate GH
+
+    activate NA
+    NA->>GH: POST /login/oauth/access_token { code }
+    activate GH
+    GH-->>NA: { access_token, scope }
+    deactivate GH
+
+    NA->>GH: GET /user (avec access_token)
+    activate GH
+    GH-->>NA: { id, login, email, avatar_url }
+    deactivate GH
+
+    NA->>BE: POST /auth/oauth/github { githubId, email, name, image, access_token }
+    activate BE
+
+    BE->>DB: SELECT * FROM User WHERE email = ?
+    activate DB
+    DB-->>BE: User | null
+    deactivate DB
+
+    alt Utilisateur inexistant (premier login)
+        BE->>DB: INSERT INTO User { name, email, image, githubUsername }
+        activate DB
+        DB-->>BE: Nouvel User créé
+        deactivate DB
+        BE->>DB: INSERT INTO Account { userId, provider="github", ... }
+        activate DB
+        DB-->>BE: Account créé
+        deactivate DB
+    else Utilisateur existant
+        BE->>DB: UPDATE Account SET access_token = ? WHERE provider = "github"
+        activate DB
+        DB-->>BE: Account mis à jour
+        deactivate DB
+    end
+
+    BE->>JW: signAccessToken(userId, email, roles)
+    BE->>JW: signRefreshToken(userId)
+    activate JW
+    JW-->>BE: { accessToken, refreshToken }
+    deactivate JW
+
+    BE-->>NA: 200 OK { accessToken, refreshToken, user }
+    deactivate BE
+
+    NA->>NA: jwt() callback — stocke tokens dans le token JWT chiffré
+    NA-->>FE: Session établie { user, accessToken }
+    deactivate NA
+    FE-->>User: ✅ Redirige vers /dashboard

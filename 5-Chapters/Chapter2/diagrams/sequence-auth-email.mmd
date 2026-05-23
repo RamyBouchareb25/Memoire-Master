@@ -1,0 +1,49 @@
+---
+title: "Fig 2.4a — Authentification Email/Password"
+---
+sequenceDiagram
+    autonumber
+
+    actor       User        as Utilisateur
+    participant FE          as Next.js Frontend
+    participant NA          as NextAuth.js
+    participant BE          as NestJS API
+    participant DB          as PostgreSQL
+    participant GH          as GitHub OAuth
+    participant JW          as JWT Service
+
+    User->>FE: Soumet formulaire (email, password)
+    FE->>NA: signIn("credentials", { email, password })
+
+    activate NA
+    NA->>BE: POST /auth/login { email, password }
+    activate BE
+
+    BE->>DB: SELECT * FROM User WHERE email = ?
+    activate DB
+    DB-->>BE: User record (hash inclus)
+    deactivate DB
+
+    alt Utilisateur introuvable
+        BE-->>NA: 401 Unauthorized
+        NA-->>FE: error: "CredentialsSignin"
+        FE-->>User: ❌ Email ou mot de passe incorrect
+    else Password invalide (bcrypt.compare échoue)
+        BE-->>NA: 401 Unauthorized
+        NA-->>FE: error: "CredentialsSignin"
+        FE-->>User: ❌ Email ou mot de passe incorrect
+    else Authentification réussie
+        BE->>JW: signAccessToken(userId, email, roles)
+        BE->>JW: signRefreshToken(userId)
+        activate JW
+        JW-->>BE: { accessToken, refreshToken }
+        deactivate JW
+
+        BE-->>NA: 200 OK { accessToken, refreshToken, user }
+        deactivate BE
+
+        NA->>NA: jwt() callback — stocke tokens dans le token JWT chiffré
+        NA-->>FE: Session établie { user, accessToken }
+        deactivate NA
+        FE-->>User: ✅ Redirige vers /dashboard
+    end

@@ -1,0 +1,50 @@
+---
+title: "Fig 2.4c — Rotation du Refresh Token"
+---
+sequenceDiagram
+    autonumber
+
+    actor       User        as Utilisateur
+    participant FE          as Next.js Frontend
+    participant NA          as NextAuth.js
+    participant BE          as NestJS API
+    participant DB          as PostgreSQL
+    participant GH          as GitHub OAuth
+    participant JW          as JWT Service
+
+    FE->>NA: Requête API avec accessToken expiré
+    activate NA
+    NA->>NA: jwt() callback — détecte expiration accessToken
+
+    NA->>BE: POST /auth/refresh { refreshToken }
+    activate BE
+
+    BE->>JW: verifyRefreshToken(refreshToken)
+    activate JW
+    JW-->>BE: payload { userId } | erreur
+    deactivate JW
+
+    alt refreshToken invalide ou expiré
+        BE-->>NA: 401 Unauthorized
+        NA-->>FE: Session invalidée
+        FE-->>User: Redirige vers /login
+    else refreshToken valide
+        BE->>DB: SELECT * FROM User WHERE id = userId
+        activate DB
+        DB-->>BE: User record
+        deactivate DB
+
+        BE->>JW: signAccessToken(userId, email, roles)
+        BE->>JW: signRefreshToken(userId)
+        activate JW
+        JW-->>BE: { newAccessToken, newRefreshToken }
+        deactivate JW
+
+        BE-->>NA: 200 OK { accessToken, refreshToken }
+        deactivate BE
+
+        NA->>NA: jwt() callback — met à jour le token chiffré
+        NA-->>FE: Session renouvelée
+        deactivate NA
+        FE-->>User: Requête relancée avec le nouveau token
+    end

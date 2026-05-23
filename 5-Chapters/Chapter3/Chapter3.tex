@@ -780,13 +780,122 @@ Le \texttt{WorkflowTemplate} \texttt{hostifer-delete} orchestre la suppression c
 	\label{fig:3.7}
 \end{figure}
 
+% ------------------------------------------------------------
 \subsection{Configuration de l'observabilité (Loki + Promtail)}
+% ------------------------------------------------------------
 
-% Content here
+La collecte et l'indexation des journaux de la plateforme Hostifer reposent sur la chaîne \textbf{Promtail → Loki}, composante de la stack d'observabilité Grafana. Promtail assure la collecte des flux \texttt{stdout} des pods sur chaque nœud du cluster et leur transmission à Loki, qui les indexe et les rend interrogeables via LogQL. Cette chaîne alimente directement le mécanisme de streaming SSE décrit dans la section 3.2.4, en fournissant les journaux de build en temps réel à l'interface utilisateur.
 
+\subsubsection*{Déploiement Promtail en tant que DaemonSet}
+
+Promtail est déployé en tant que \texttt{DaemonSet} sur l'ensemble des nœuds du cluster ACK. Ce mode de déploiement garantit qu'une instance Promtail s'exécute sur chaque nœud, quelle que soit sa composition, et peut lire les fichiers de journaux de tous les pods schedulés sur ce nœud depuis le répertoire \texttt{/var/log/pods/} du système hôte \cite{promtail-scraping}. Promtail est configuré pour découvrir automatiquement les pods via \texttt{kubernetes\_sd\_configs} avec le rôle \texttt{pod} : pour chaque conteneur d'un pod découvert, Promtail construit un flux de journaux unique dont les labels sont extraits des métadonnées Kubernetes du pod. 
+
+La contrainte fondamentale de ce mode de déploiement est que Promtail ne peut lire les fichiers de journaux que des pods s'exécutant sur le même nœud que lui. Pour cette raison, chaque configuration \texttt{kubernetes\_sd\_configs} doit inclure une règle \texttt{relabel\_config} créant le label intermédiaire \texttt{\_\_host\_\_} depuis \texttt{\_\_meta\_kubernetes\_pod\_node\_name}, afin que Promtail valide que le pod cible est bien schedulé sur son nœud local avant de tenter de lire ses journaux. 
+
+\subsubsection*{Pipeline de relabeling et labels personnalisés}
+
+Les métadonnées Kubernetes sont exposées par la découverte de service comme des labels internes préfixés \texttt{\_\_meta\_kubernetes\_}, qui sont supprimés du jeu de labels final après le relabeling. Pour les rendre visibles dans Loki, ils doivent être explicitement renommés en labels cibles via des règles \texttt{relabel\_configs} de type \texttt{replace}. 
+
+Pour Hostifer, le pipeline de relabeling est configuré pour attacher quatre labels structurants à chaque flux de journaux transmis à Loki.
+
+\textbf{\texttt{build\_id}} est extrait du label Kubernetes \texttt{\_\_meta\_kubernetes\_pod\_label\_build\_id}, que le \texttt{WorkflowTemplate} Argo Workflows \texttt{hostifer-deploy} attache au pod Builder Job lors de sa création, en lui passant la valeur \texttt{\{\{workflow.name\}\}}. Ce label est le pivot du mécanisme de streaming : il permet au service \texttt{loki.service.ts} du backend NestJS de construire la requête LogQL \texttt{\{build\_id="<deployment\_id>"\}} qui isole précisément les journaux d'un déploiement donné parmi l'ensemble des logs du cluster.
+
+\textbf{\texttt{tenant\_id}} est extrait du label Kubernetes \texttt{\_\_meta\_kubernetes\_pod\_label\_hostifer\_io\_tenant}, présent sur tous les pods provisionnés par le chart \texttt{tenant-chart} via le label \texttt{hostifer.io/tenant: <tenant-id>}. Il permet de regrouper et filtrer les journaux par tenant dans les requêtes LogQL et les dashboards d'observabilité.
+
+\textbf{\texttt{container}} est extrait de \texttt{\_\_meta\_kubernetes\_pod\_container\_name} via une règle de remplacement standard. Ce label est indispensable pour le filtrage \texttt{container="main"} appliqué par \texttt{loki.service.ts}, qui exclut les conteneurs auxiliaires injectés par Argo Workflows — notamment le conteneur \texttt{wait} chargé de la gestion du cycle de vie du pod workflow — dont les journaux sont de nature infrastructurelle et sans valeur pour l'utilisateur final.
+
+\textbf{\texttt{log\_type}} est dérivé du namespace du pod via une règle de transformation conditionnelle : les pods appartenant au namespace \texttt{hostifer-system} reçoivent la valeur \texttt{build}, tandis que les pods appartenant aux namespaces tenants reçoivent la valeur \texttt{app}. Ce label permet de distinguer les journaux de construction des journaux applicatifs dans les requêtes LogQL.
+
+En complément des règles \texttt{relabel\_configs}, un bloc \texttt{pipeline\_stages} est configuré pour parser le format JSON structuré émis par le logger Zap du binaire builder Go. L'étape \texttt{json} extrait le champ \texttt{level} de chaque ligne de journal, et l'étape \texttt{labels} le propage comme label Loki indexé, permettant de filtrer les journaux par niveau de sévérité (\texttt{info}, \texttt{warn}, \texttt{error}) directement dans les requêtes LogQL sans recourir à un filtre de pipeline coûteux \cite{loki-logql-queries}.
+
+\subsubsection*{Indexation et persistance dans Loki}
+
+Loki est déployé sur le cluster en mode \textit{single binary} pour l'environnement actuel, avec un stockage des chunks de journaux sur le volume NAS (\textit{ReadWriteMany}) décrit dans la section 3.1.1, permettant la persistance des journaux entre les redémarrages du pod Loki sans perte de données. L'index des labels est maintenu en mémoire avec flush périodique sur le même volume NAS \cite{loki-http-api}.
+
+La rétention des journaux est configurée différemment selon le type de données : les journaux de build (\texttt{log\_type="build"}) sont conservés pendant 30 jours, durée suffisante pour l'audit des déploiements passés accessibles depuis l'interface utilisateur ; les journaux applicatifs des tenants (\texttt{log\_type="app"}) sont conservés pendant 7 jours par défaut, conformément aux contraintes de stockage du plan tarifaire associé.
+
+\begin{longtable}{|p{3cm}|p{3.5cm}|p{6.5cm}|}
+\caption{Labels Promtail attachés aux flux de journaux Hostifer}
+\label{tab:promtail-labels} \\
+
+\hline
+\textbf{Label Loki} & \textbf{Source Kubernetes} & \textbf{Rôle dans la plateforme} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Label Loki} & \textbf{Source Kubernetes} & \textbf{Rôle dans la plateforme} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\texttt{build\_id}
+  & \texttt{pod\_label\_build\_id}
+  & Filtre les journaux d'un déploiement spécifique dans les requêtes LogQL et le streaming SSE \\
+\hline
+\texttt{tenant\_id}
+  & \texttt{pod\_label\_hostifer\_io\_tenant}
+  & Regroupe les journaux par tenant pour les dashboards et l'isolation des logs \\
+\hline
+\texttt{container}
+  & \texttt{pod\_container\_name}
+  & Filtre \texttt{container="main"} pour exclure les conteneurs auxiliaires Argo \\
+\hline
+\texttt{log\_type}
+  & Namespace du pod (règle conditionnelle)
+  & Distingue les journaux de build (\texttt{build}) des journaux applicatifs (\texttt{app}) \\
+\hline
+\texttt{level}
+  & Champ \texttt{level} du JSON Zap (pipeline\_stages)
+  & Filtrage par sévérité : \texttt{info}, \texttt{warn}, \texttt{error} \\
+\hline
+\texttt{namespace}
+  & \texttt{pod\_namespace}
+  & Corrélation des journaux avec le namespace Kubernetes du tenant \\
+\hline
+\texttt{pod}
+  & \texttt{pod\_name}
+  & Identification du pod source pour le débogage d'incidents \\
+\hline
+
+\end{longtable}
+
+% ------------------------------------------------------------
 \subsection{Gestion des certificats TLS avec cert-manager}
+% ------------------------------------------------------------
 
-% Content here
+La sécurisation des communications entre les utilisateurs et les applications déployées sur Hostifer repose sur l'émission et le renouvellement automatiques de certificats TLS X.509, orchestrés par cert-manager. Cert-manager est une solution de gestion de certificats cloud-native pour Kubernetes. Elle obtient des certificats X.509 auprès d'autorités de certification publiques ou privées et s'assure que ces certificats restent valides et à jour, en procédant automatiquement à leur renouvellement dans un délai configuré avant expiration, sans interruption de service pour les workloads. 
+
+Cert-manager est déployé sur le cluster ACK via son chart Helm officiel dans le namespace \texttt{cert-manager}, avec l'option \texttt{installCRDs=true} activée pour installer simultanément les définitions de ressources personnalisées nécessaires (\texttt{Certificate}, \texttt{ClusterIssuer}, \texttt{CertificateRequest}, \texttt{Challenge}, \texttt{Order}) \cite{cert-manager-docs}.
+
+\subsubsection*{ClusterIssuer et protocole ACME avec challenge DNS-01}
+
+La configuration de l'autorité de certification est déclarée via une ressource \texttt{ClusterIssuer} de portée cluster, nommée \texttt{letsencrypt-prod}. Le choix d'un \texttt{ClusterIssuer} plutôt qu'un \texttt{Issuer} namespacé est motivé par la nature multi-tenant de la plateforme : les certificats doivent être émis pour des sous-domaines appartenant à des namespaces tenant distincts, et un \texttt{ClusterIssuer} unique peut servir l'ensemble de ces requêtes sans duplication de configuration \cite{cert-manager-acme}.
+
+Le \texttt{ClusterIssuer} est configuré avec le protocole ACME (\textit{Automated Certificate Management Environment}), en pointant vers le serveur de production de Let's Encrypt (\texttt{https://acme-v02.api.letsencrypt.org/directory}). Pour que le serveur ACME puisse vérifier que le client est bien propriétaire du domaine pour lequel un certificat est demandé, le client doit compléter un challenge de validation. Cert-manager propose deux types de validation : HTTP-01, qui présente une clé calculée sur un endpoint HTTP accessible depuis Internet, et DNS-01, qui dépose un enregistrement TXT sur le DNS du domaine. 
+
+Hostifer utilise exclusivement le challenge \textbf{DNS-01} avec Cloudflare comme fournisseur DNS. Ce choix est imposé par l'architecture de la plateforme pour deux raisons. D'une part, le challenge DNS-01 est requis pour l'émission de certificats wildcard, car le challenge HTTP-01 ne peut pas valider une couverture wildcard.  Un certificat wildcard \texttt{*.hostifer.me} permet de couvrir l'ensemble des sous-domaines tenant sans émettre un certificat distinct par application déployée, réduisant considérablement le nombre de requêtes ACME et le risque d'atteinte aux limites de débit de Let's Encrypt. D'autre part, le challenge DNS-01 ne nécessite pas que le cluster soit accessible publiquement sur le port 80 au moment de la validation, ce qui est compatible avec l'architecture de sécurité réseau du cluster ACK décrite dans la section 3.1.1.
+
+L'intégration avec Cloudflare est réalisée via un token API Cloudflare de portée restreinte, stocké dans un \texttt{Secret} Kubernetes dans le namespace \texttt{cert-manager} et référencé par la configuration \texttt{dns01.cloudflare.apiTokenSecretRef} du \texttt{ClusterIssuer}. L'utilisation d'un token API à portée restreinte est recommandée pour la sécurité, car ces tokens disposent de permissions plus granulaires et peuvent être révoqués indépendamment des autres accès au compte Cloudflare.  Lors d'une demande de certificat, cert-manager crée temporairement un enregistrement TXT \texttt{\_acme-challenge.<subdomain>} dans la zone DNS Cloudflare via l'API Cloudflare, attend la validation par le serveur ACME de Let's Encrypt, puis supprime l'enregistrement TXT une fois la validation terminée.
+
+\subsubsection*{Émission des certificats et cycle de vie}
+
+Les certificats TLS sont définis via des ressources \texttt{Certificate} de l'API \texttt{cert-manager.io/v1}, créées dans le namespace \texttt{hostifer-system} pour le certificat wildcard de la plateforme. Chaque ressource \texttt{Certificate} référence le \texttt{ClusterIssuer} \texttt{letsencrypt-prod}, spécifie le nom DNS couvert (\texttt{dnsNames: ["*.hostifer.me", "hostifer.me"]}), et désigne un \texttt{Secret} cible dans lequel cert-manager stocke le certificat émis et sa clé privée au format PEM. Ce \texttt{Secret} est ensuite référencé par Traefik pour la terminaison TLS.
+
+Cert-manager surveille en permanence la date d'expiration des certificats qu'il gère et déclenche automatiquement le processus de renouvellement lorsque le certificat approche de son expiration, typiquement lorsqu'il reste moins d'un tiers de sa durée de validité.  Les certificats Let's Encrypt ayant une durée de validité de 90 jours, le renouvellement est déclenché environ 30 jours avant expiration. Ce processus est entièrement automatique et transparent : le \texttt{Secret} Kubernetes contenant le certificat est mis à jour in-place, et Traefik détecte automatiquement la mise à jour grâce à son mécanisme de rechargement dynamique de la configuration TLS, sans interruption de service.
+
+\subsubsection*{Intégration avec Traefik}
+
+Traefik, en tant que contrôleur d'entrée Kubernetes, se combine avec cert-manager pour automatiser la gestion des certificats SSL, supprimant la nécessité de toute gestion manuelle des certificats TLS.  L'intégration entre cert-manager et Traefik sur Hostifer repose sur le mécanisme de \textit{traefik-certmanager} : un composant surveille les ressources \texttt{IngressRoute} Traefik créées par le chart \texttt{tenant-chart} et crée automatiquement les ressources \texttt{Certificate} cert-manager correspondantes lorsqu'une annotation TLS est détectée \cite{traefik-certmanager}.
+
+Traefik est configuré avec un \texttt{TLSStore} par défaut référençant le \texttt{Secret} du certificat wildcard \texttt{*.hostifer.me}, permettant à toutes les \texttt{IngressRoutes} des tenants de bénéficier automatiquement de la terminaison TLS sans configuration individuelle par tenant. Lorsqu'une nouvelle application est déployée sur un sous-domaine \texttt{<subdomain>.hostifer.me}, le certificat wildcard existant couvre immédiatement ce nouveau sous-domaine, éliminant tout délai lié à l'émission d'un certificat spécifique et garantissant que l'application est accessible en HTTPS dès la fin de l'étape DNS du pipeline Argo Workflows.
+
 
 \subsection{Collecte des métriques avec Prometheus}
 
