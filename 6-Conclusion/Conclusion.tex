@@ -7,20 +7,25 @@
 
 \subsection*{Contribution technique}
 
-% Content here
+Sur le plan technique, Hostifer a permis de démontrer qu'une plateforme de déploiement moderne pouvait être conçue autour d'une architecture Kubernetes multi-tenant native, sans dépendre d'une orchestration ad hoc ou de scripts d'automatisation fragiles. L'ensemble du cycle de vie applicatif a été pris en charge de manière cohérente, depuis la génération du plan de build jusqu'au déploiement final, en passant par l'orchestration des workflows, la gestion des journaux et la supervision des ressources. Cette approche a conduit à une architecture modulaire, reproductible et adaptée à l'industrialisation, dans laquelle les responsabilités sont clairement séparées entre le backend, les jobs d'exécution et les briques d'infrastructure.
+
+Le pipeline de build automatisé constitue l'autre apport majeur. Il permet de détecter le framework applicatif, de générer le plan de construction, de produire l'image OCI correspondante et de suivre le déploiement jusqu'à son terme sans intervention manuelle. Ce niveau d'automatisation réduit les erreurs humaines, améliore la traçabilité et standardise les déploiements, tout en conservant une flexibilité suffisante pour accueillir plusieurs types d'applications et de tenants. En ce sens, Hostifer dépasse le simple rôle d'outil d'hébergement pour devenir une chaîne de livraison cohérente, pensée pour l'exploitation à l'échelle.
 
 \subsection*{Contribution économique}
 
-% Content here
+Sur le plan économique, le projet a été conçu autour d'un modèle DZD-natif afin de lever un frein important à l'adoption : l'absence d'une tarification pensée dès l'origine pour le marché local. Cette approche facilite la projection des coûts pour les utilisateurs algériens et évite la dépendance à des référentiels monétaires étrangers souvent peu adaptés aux réalités du terrain. En proposant une grille de prix lisible, alignée sur le contexte national, Hostifer se positionne comme une offre plus accessible et plus pertinente pour les petites équipes, les startups et les structures en phase de lancement.
+
+L'introduction d'un \textit{free tier} renforce encore cette logique d'adoption progressive. Elle permet aux utilisateurs de tester la plateforme sans engagement financier immédiat, tout en validant la valeur du service avant de migrer vers une offre supérieure. Ce mécanisme a aussi une portée stratégique : il réduit la barrière d'entrée, encourage l'expérimentation et favorise la constitution d'un premier socle d'utilisateurs. À moyen terme, cette politique peut contribuer à améliorer la rétention, à accélérer la diffusion de la solution et à soutenir un modèle de croissance plus durable.
 
 \subsection*{Contribution sociétale}
 
-% Content here
+Au-delà des aspects techniques et économiques, Hostifer porte une contribution sociétale plus large en s'inscrivant dans une logique de souveraineté numérique algérienne. Le projet montre qu'il est possible de bâtir une infrastructure cloud locale capable d'héberger, de construire et de déployer des applications sans imposer une dépendance systématique à des plateformes étrangères. Dans un contexte où la maîtrise de la donnée, des flux de déploiement et des services d'infrastructure devient un enjeu stratégique, disposer d'une alternative locale constitue un levier de résilience et d'autonomie.
 
-\section*{Perspectives d'évolution}
+Cette orientation est également compatible avec des exigences de conformité réglementaire plus strictes. En gardant les données et les workflows dans un périmètre contrôlé, Hostifer facilite l'alignement avec les politiques internes de sécurité, les contraintes de résidence des données et les obligations sectorielles qui peuvent s'appliquer à certains usages. La plateforme contribue ainsi à rapprocher l'innovation logicielle des besoins institutionnels et industriels locaux, tout en posant les bases d'un écosystème plus maîtrisé et plus responsable.
 
-% Content here
 
 \section*{Ouverture}
 
-% Content here
+Hostifer a atteint un niveau de maturité qui dépasse le simple prototype technique : la plateforme commence à dessiner les contours d'une infrastructure potentiellement critique pour l'écosystème numérique algérien. En consolidant ses fondations sur la haute disponibilité, l'automatisation et la multi-location, elle peut progressivement répondre à des besoins plus larges que ceux d'un seul projet ou d'une seule équipe. Les évolutions envisagées dans les chapitres précédents, notamment l'amélioration de la résilience, l'ouverture à des domaines personnalisés et l'intégration de services managés, vont dans le sens d'une plateforme plus robuste et plus facilement industrialisable.
+
+À terme, le potentiel de Hostifer ne se limite pas à l'hébergement d'applications. La solution pourrait devenir un socle d'exécution pour des services numériques essentiels, en fournissant un cadre unifié de déploiement, d'observabilité et de gouvernance. C'est dans cette perspective qu'il convient d'inscrire le projet : non comme un simple outil de plus, mais comme une brique d'infrastructure capable d'accompagner la structuration d'un environnement numérique local plus souverain, plus lisible et plus durable.

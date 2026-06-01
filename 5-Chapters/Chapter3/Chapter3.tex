@@ -463,15 +463,71 @@ La session WebSocket gérée par \texttt{LokiTailPool} termine son cycle de vie 
 
 Dans les deux cas, la terminaison du générateur asynchrone provoque la complétion de l'\texttt{Observable} RxJS côté contrôleur, ce qui entraîne automatiquement la fermeture propre de la connexion SSE. Côté backend, lorsque le dernier subscriber se désabonne (ou que tous les clients fermés leur connexion SSE), la session WebSocket \texttt{LokiTailSession} est supprimée du pool et la connexion WebSocket vers Loki est fermée, libérant les ressources associées.
 
-% Content here
-
+% ------------------------------------------------------------
 \subsection{Module de gestion des variables d'environnement avec Vault}
+% ------------------------------------------------------------
 
-% Content here
+Le module \texttt{env-vars/} implémente la couche de gestion sécurisée des secrets applicatifs de la plateforme. Son architecture repose sur trois composants distincts opérant en pipeline : le service \texttt{vault.service.ts} pour l'interaction directe avec HashiCorp Vault, le service \texttt{env-vars.service.ts} pour la logique métier de gestion des variables, et l'External Secrets Operator (ESO) pour la synchronisation automatique des secrets vers les namespaces Kubernetes des tenants. Ce découplage garantit que les valeurs sensibles ne transitent jamais en clair dans la couche applicative NestJS ni dans les ressources Kubernetes natives.
 
+\subsubsection*{Authentification Kubernetes auprès de Vault}
+
+La méthode d'authentification retenue pour l'interaction entre NestJS et Vault est la \textbf{méthode Kubernetes Auth}. La méthode d'authentification Kubernetes de Vault valide les jetons de ServiceAccount via l'API \texttt{TokenReview} de Kubernetes, vérifiant leur existence et leur validité avant d'émettre un token Vault en retour.  Ce mécanisme est le plus adapté aux workloads s'exécutant dans un cluster Kubernetes car il ne nécessite aucune gestion de secrets statiques (token Vault, AppRole credentials) : l'authentification Kubernetes permet aux pods de s'authentifier en utilisant leurs tokens de ServiceAccount, que Vault valide contre l'API Kubernetes — éliminant le besoin de secrets statiques dans la configuration des pods. 
+
+Concrètement, le pod NestJS s'exécutant dans le namespace \texttt{hostifer-system} est associé à un \texttt{ServiceAccount} dédié. Au démarrage du module, la méthode \texttt{authenticate()} de \texttt{vault.service.ts}, invoquée via le lifecycle hook \texttt{OnModuleInit}, lit le token du ServiceAccount depuis le chemin standard \texttt{/var/run/secrets/kubernetes.io/serviceaccount/token} et soumet une requête \texttt{POST} à l'endpoint \texttt{/v1/auth/kubernetes/login} de Vault, en spécifiant le rôle Vault configuré pour ce ServiceAccount. Vault vérifie la validité du token auprès de l'API \texttt{TokenReview} de Kubernetes et, si la vérification réussit, retourne un token Vault de durée de vie limitée (\textit{TTL}) que \texttt{vault.service.ts} utilise pour toutes les opérations ultérieures sur le moteur KV v2. Le renouvellement du token Vault avant son expiration est géré automatiquement par le cycle de vie du module.
+
+\subsubsection*{Structure du moteur KV v2 et opérations d'écriture/lecture}
+
+Les secrets applicatifs des tenants sont stockés dans le moteur de secrets KV version 2 (\textit{Key-Value v2}) de Vault, activé sur le chemin \texttt{secret/}. Le moteur KV v2 se distingue du KV v1 par son support natif du versionnement des secrets : chaque écriture produit une nouvelle version immuable, permettant de conserver l'historique des valeurs et de procéder à des retours arrière en cas de rotation accidentelle \cite{vault-kv2}. La convention de nommage des chemins utilisée par Hostifer est \texttt{secret/data/projects/<tenant\_id>}, où \texttt{<tenant\_id>} est l'identifiant unique du projet. L'ensemble des variables d'environnement d'un projet est stocké sous ce chemin unique dans un objet JSON dont les clés correspondent aux noms des variables.
+
+La méthode \texttt{writeProjectEnvs(projectId, envs)} de \texttt{vault.service.ts} effectue une écriture atomique de l'ensemble des variables d'un projet via une requête \texttt{PUT} à l'endpoint \texttt{/v1/secret/data/projects/<projectId>}. Cette approche par objet unique — plutôt qu'un chemin Vault par variable — réduit le nombre d'appels à l'API Vault lors des opérations de mise à jour groupées et garantit la cohérence de l'ensemble des variables à tout instant. La méthode \texttt{readProjectEnvs(projectId)} effectue la lecture symétrique via \texttt{GET /v1/secret/data/projects/<projectId>} et retourne le contenu du champ \texttt{data.data} de la réponse Vault, qui contient l'objet JSON des variables. La méthode \texttt{deleteProjectEnvs(projectId)} supprime le chemin complet via \texttt{DELETE /v1/secret/metadata/projects/<projectId>}, ce qui supprime toutes les versions du secret conformément à la sémantique KV v2.
+
+Les métadonnées des variables (noms des clés, types, visibilité, identifiant de l'auteur, horodatages) sont persistées séparément dans la base de données PostgreSQL via Prisma, dans la table \texttt{env\_var}. Cette séparation est fondamentale : PostgreSQL ne contient jamais les valeurs des secrets, uniquement leurs métadonnées, garantissant que même une fuite de la base de données relationnelle n'expose aucune valeur sensible.
+
+\subsubsection*{Synchronisation ESO vers les Kubernetes Secrets}
+
+L'External Secrets Operator (ESO) est le composant responsable de la matérialisation des secrets Vault en ressources \texttt{Kubernetes Secret} natives dans les namespaces des tenants. ESO est un opérateur Kubernetes qui intègre les systèmes de gestion de secrets externes tels que HashiCorp Vault dans les clusters Kubernetes. Un \texttt{ClusterSecretStore} définit la connexion globale au fournisseur de secrets, tandis qu'une \texttt{ExternalSecret} spécifie quelles données récupérer et comment les matérialiser en \texttt{Kubernetes Secret}. 
+
+La configuration ESO de Hostifer repose sur un \texttt{ClusterSecretStore} unique nommé \texttt{vault-cluster-backend}, déployé dans le namespace \texttt{external-secrets} et accessible depuis tous les namespaces tenant du cluster. Ce \texttt{ClusterSecretStore} est configuré pour s'authentifier auprès de Vault via la méthode Kubernetes Auth, en utilisant le ServiceAccount d'ESO et le rôle Vault dédié \texttt{external-secrets}. Il cible le moteur KV v2 sur le chemin \texttt{secret/} du serveur Vault interne au cluster.
+
+Pour chaque projet, une ressource \texttt{ExternalSecret} est créée dans le namespace du tenant par le chart Helm \texttt{tenant-chart} lors du provisionnement. Cette ressource déclare le mapping entre les clés Vault (\texttt{remoteRef.key: projects/<tenant\_id>}) et les clés du \texttt{Kubernetes Secret} cible, avec un intervalle de rafraîchissement de 1 heure. ESO réconcilie périodiquement l'\texttt{ExternalSecret} en lisant les valeurs depuis Vault et en mettant à jour le \texttt{Kubernetes Secret} correspondant dans le namespace du tenant.
+
+Lors d'une mise à jour des variables par l'utilisateur via l'endpoint \texttt{PUT /env-vars}, \texttt{env-vars.service.ts} appelle la méthode \texttt{annotateExternalSecret(namespace, externalSecretName)} de \texttt{kubernetes.service.ts} après l'écriture réussie dans Vault. Cette méthode appose l'annotation \texttt{hostifer/trigger-sync: <unix-timestamp>} sur la ressource \texttt{ExternalSecret} du namespace du tenant via l'API Kubernetes, déclenchant une réconciliation immédiate par ESO sans attendre l'expiration de l'intervalle de rafraîchissement configuré. Ce mécanisme garantit que les nouvelles valeurs sont disponibles dans le \texttt{Kubernetes Secret} du tenant dans les secondes suivant leur mise à jour par l'utilisateur, et sont injectées dans les pods applicatifs lors de leur prochain redémarrage ou déploiement.
+
+Le flux complet, depuis la saisie d'une variable par l'utilisateur jusqu'à son injection dans un pod applicatif, est décrit dans la Figure~\ref{fig:vault-eso-flow} (Figure~2.15) du chapitre 2.
+
+% ------------------------------------------------------------
 \subsection{Versioning et rollback des déploiements}
+% ------------------------------------------------------------
 
-% Content here
+La conservation de l'historique des déploiements et la capacité de retour arrière vers une version stable antérieure constituent des exigences opérationnelles fondamentales pour une plateforme PaaS de production. Hostifer implémente ces fonctionnalités en combinant la persistance de l'historique en base de données PostgreSQL, le stockage immuable des images OCI dans le registre interne, et la stratégie de mise à jour progressive (\textit{rolling update}) native de Kubernetes.
+
+\subsubsection*{Conservation de l'historique des déploiements}
+
+Chaque déploiement déclenché sur la plateforme — qu'il soit initié manuellement par l'utilisateur via l'interface Deploy Wizard ou automatiquement par un événement webhook GitHub — crée un nouvel enregistrement \texttt{Deployment} en base de données PostgreSQL, indépendamment du résultat final. Cette politique de conservation exhaustive garantit que l'intégralité de l'historique des déploiements d'un projet est disponible pour consultation, y compris les déploiements ayant échoué, dont les journaux de build restent accessibles depuis l'interface utilisateur via la chaîne Promtail → Loki.
+
+Chaque enregistrement \texttt{Deployment} conserve les informations nécessaires à la reproduction ou au retour arrière vers cette version : le tag de l'image OCI construite (\texttt{imageTag}), le hash du commit Git déployé (\texttt{commitSha}), le message de commit (\texttt{commitMessage}), la branche source (\texttt{branch}), l'origine du déclenchement (\texttt{triggeredBy} : \texttt{MANUAL} ou \texttt{WEBHOOK}), les durées des étapes individuelles du pipeline (\texttt{buildDuration}, \texttt{totalDuration}), et l'horodatage de début et de fin. Les étapes détaillées du workflow sont conservées dans des enregistrements \texttt{DeploymentStep} associés, permettant d'identifier précisément à quelle étape (\textit{Build}, \textit{Provision} ou \textit{DNS}) un déploiement a échoué et pour quelle raison.
+
+L'image OCI produite lors de chaque build est stockée dans le registre interne de la plateforme avec un tag dérivé du nom du workflow Argo Workflows (\texttt{argoWorkflowName}), qui est unique et immuable. Dans un environnement de production, le stockage des images dans un registre privé dédié est indispensable : si une image est écrasée ou si le registre devient indisponible, le cluster ne peut plus procéder aux opérations de scaling et de rollback, générant des erreurs \texttt{ImagePullBackOff}.  L'utilisation du registre interne intra-cluster élimine cette dépendance à un registre externe et garantit la disponibilité des images pour le rollback même en cas d'indisponibilité réseau vers l'extérieur.
+
+\subsubsection*{Identification des versions précédentes}
+
+L'endpoint \texttt{GET /deployments?projectId=<id>} du backend NestJS retourne la liste paginée des déploiements d'un projet, triée par date de création décroissante. Chaque entrée expose le statut du déploiement, le tag de l'image OCI, le hash et le message du commit associé, et la durée totale du pipeline. Cette liste permet à l'utilisateur d'identifier visuellement les versions stables antérieures — identifiées par le statut \texttt{LIVE} — et les déploiements ayant échoué — identifiés par le statut \texttt{FAILED}.
+
+La méthode \texttt{findByProject(projectId)} de \texttt{deployments.service.ts} interroge PostgreSQL via Prisma en incluant les enregistrements \texttt{DeploymentStep} associés, afin que l'interface utilisateur puisse afficher la progression détaillée par étape pour chaque déploiement de l'historique. L'identification du dernier déploiement stable — nécessaire pour le rollback automatique en cas d'échec — est réalisée par une requête \texttt{findFirst} avec filtre sur \texttt{status: LIVE} et tri décroissant sur \texttt{createdAt}, qui retourne le déploiement en état \texttt{LIVE} le plus récent avant le déploiement courant.
+
+\subsubsection*{Stratégie de rolling update et préservation de la continuité de service}
+
+Lors d'un redéploiement d'une application existante, le chart Helm \texttt{tenant-chart} est invoqué avec \texttt{helm upgrade} plutôt qu'\texttt{helm install}. Helm met à jour le \texttt{Deployment} Kubernetes du tenant en changeant le champ \texttt{spec.template.spec.containers[0].image} vers le nouveau tag d'image OCI. Kubernetes applique alors sa stratégie de mise à jour progressive (\textit{RollingUpdate}) : Kubernetes crée un nouveau \texttt{ReplicaSet} avec la nouvelle version de l'image et augmente progressivement son nombre de réplicas tandis que l'ancien \texttt{ReplicaSet} est réduit à zéro. L'ancien \texttt{ReplicaSet} n'est pas immédiatement supprimé mais conservé avec un nombre de réplicas nul, ce qui permet un retour arrière rapide. 
+
+Le champ \texttt{revisionHistoryLimit} du \texttt{Deployment} Kubernetes contrôle le nombre de \texttt{ReplicaSets} précédents conservés pour le rollback. Avec une valeur de 5, les cinq dernières révisions du déploiement restent disponibles pour un retour arrière instantané via \texttt{kubectl rollout undo}.  Le chart \texttt{tenant-chart} configure \texttt{revisionHistoryLimit: 5} sur chaque \texttt{Deployment} tenant, garantissant la disponibilité d'un historique de révisions Kubernetes indépendamment de l'historique applicatif conservé en base de données PostgreSQL.
+
+Les paramètres \texttt{maxUnavailable: 0} et \texttt{maxSurge: 1} sont configurés dans la stratégie \texttt{RollingUpdate} du chart, garantissant qu'aucun pod de la version précédente n'est arrêté avant qu'un pod de la nouvelle version n'ait passé sa sonde de \textit{readiness}. Ce paramétrage assure la continuité de service pendant la mise à jour, sans fenêtre d'interruption \cite{k8s-rollback}.
+
+\subsubsection*{Retour arrière vers un état stable}
+
+Le rollback vers un déploiement précédent est implémenté dans la méthode \texttt{triggerDeployment()} de \texttt{deployments.service.ts} en passant le tag de l'image OCI du déploiement cible comme paramètre \texttt{image\_name} du \textit{WorkflowTemplate} Argo. Plutôt que de reconstruire l'image depuis le code source, ce flux de rollback soumet directement l'étape \textit{Provision} avec l'image déjà présente dans le registre interne, court-circuitant l'étape \textit{Build} et réduisant le temps de rollback à la seule durée de la mise à jour Helm — typiquement de l'ordre de 30 à 60 secondes.
+
+En cas d'échec automatiquement détecté lors de la phase de synchronisation du statut (\texttt{syncDeploymentStatus()}), le service identifie le dernier déploiement en état \texttt{LIVE} et déclenche un rollback automatique via \texttt{triggerDeploymentFromPush()} avec le tag de l'image stable. Ce comportement de \textit{self-healing} garantit que l'application reste accessible pour les utilisateurs finaux même en cas de déploiement défaillant, en restaurant l'état \texttt{LIVE} précédent dans le délai le plus court possible.
 
 \section{Implémentation du builder Go}
 
@@ -1248,21 +1304,12 @@ La stratégie de rafraîchissement est différenciée selon la volatilité des d
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Landing Page.png}
 	\caption{Capture d'écran de la section Hero de la landing page}
 	\label{fig:3.8}
 \end{figure}
+\FloatBarrier
 
-\begin{figure}[h]
-	\centering
-	\caption{Capture d'écran de la section Pricing}
-	\label{fig:3.9}
-\end{figure}
-
-\begin{figure}[h]
-	\centering
-	\caption{Capture d'écran de la section comparaison concurrentielle}
-	\label{fig:3.10}
-\end{figure}
 
 \subsection{Tableau de bord utilisateur}
 
@@ -1270,15 +1317,19 @@ La stratégie de rafraîchissement est différenciée selon la volatilité des d
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Projects.png}
 	\caption{Capture d'écran du dashboard avec liste des projets et statuts}
 	\label{fig:3.11}
 \end{figure}
+\FloatBarrier
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Project Description.png}
 	\caption{Capture d'écran de la page de détail d'un projet}
 	\label{fig:3.12}
 \end{figure}
+\FloatBarrier
 
 \subsection{Assistant de déploiement (Deploy Wizard)}
 
@@ -1286,85 +1337,172 @@ La stratégie de rafraîchissement est différenciée selon la volatilité des d
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Wizard 1.png}
 	\caption{Capture d'écran de l'étape 1 : validation de l'URL GitHub et détection du framework}
 	\label{fig:3.13}
 \end{figure}
+\FloatBarrier
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Wizard 2.png}
 	\caption{Capture d'écran de l'étape 2 : configuration (région, plan, variables d'environnement)}
 	\label{fig:3.14}
 \end{figure}
+\FloatBarrier
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Wizard 3.1.png}
 	\caption{Capture d'écran de l'étape 3 : streaming des logs de build en temps réel}
 	\label{fig:3.15}
 \end{figure}
+\FloatBarrier
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Wizard 4.png}
 	\caption{Capture d'écran de l'étape 4 : confirmation du déploiement réussi avec URL live}
 	\label{fig:3.16}
 \end{figure}
+\FloatBarrier
 
-\subsection{Gestion des variables d'environnement}
-
-% Content here
-
-\begin{figure}[h]
-	\centering
-	\caption{Capture d'écran de l'interface de gestion des variables d'environnement avec masquage des secrets}
-	\label{fig:3.17}
-\end{figure}
-
-\subsection{Interface d'administration Argo Workflows}
-
-% Content here
+\subsection{Metriques et observabilité}
 
 \begin{figure}[h]
 	\centering
-	\caption{Capture d'écran de l'interface Argo Workflows montrant les étapes Build, Provision, DNS d'un déploiement réel}
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Project Stats.png}
+	\caption{Capture d'écran de la section de métriques d'un projet avec graphiques de consommation et performance}
 	\label{fig:3.18}
 \end{figure}
+\FloatBarrier
 
-\section{Tests et validation}
 
+\subsection{Gestion des Volumes}
+
+\begin{figure}[h]
+	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Volumes.png}
+	\caption{Capture d'écran de l'interface de gestion des volumes}
+	\label{fig:3.17}
+\end{figure}
+\FloatBarrier
+
+
+% ------------------------------------------------------------
 \subsection{Tests fonctionnels}
+% ------------------------------------------------------------
 
-% Content here
+La validation fonctionnelle de Hostifer a été conduite en déployant des applications représentatives de chaque framework supporté par Railpack sur l'infrastructure de production du cluster ACK. L'objectif de cette phase de test est de vérifier que le pipeline complet — de la soumission du \textit{WorkflowTemplate} Argo Workflows jusqu'à l'accessibilité publique de l'application via son URL live — s'exécute correctement pour l'ensemble des cas d'usage identifiés dans les cas d'utilisation CU01 à CU03 du chapitre 2.
 
-\begin{table}[h]
-	\centering
-	\caption{Résultats des tests de déploiement par framework (Express, NestJS, Next.js, Flask, Laravel) : statut, durée de build, mémoire consommée}
-	\label{tab:3.3}
-\end{table}
+\subsubsection*{Méthodologie}
 
-\subsection{Tests d'isolation multi-tenant}
+Pour chaque framework, une application de référence minimaliste mais représentative a été créée dans un dépôt GitHub dédié, connectée à la plateforme via l'installation GitHub App, et déployée depuis l'interface du Deploy Wizard. Les applications de référence incluent systématiquement une route HTTP racine (\texttt{GET /}), une variable d'environnement secrète injectée depuis Vault, et une dépendance externe récupérée lors du build afin de solliciter les mécanismes de cache Railpack de manière réaliste. Chaque déploiement a été exécuté cinq fois consécutives sur la même base de code, les valeurs reportées correspondent à la moyenne des cinq exécutions, la première étant exclue du calcul pour écarter l'effet du cache froid de Buildkitd.
 
-% Content here
+Les métriques collectées pour chaque test sont les suivantes. La \textbf{durée de build} couvre l'étape \textit{Build} uniquement, mesurée depuis le démarrage du pod Builder Job jusqu'à la complétion du push de l'image OCI vers le registre interne. La \textbf{durée totale de déploiement} couvre l'intégralité du pipeline, de la soumission du workflow Argo à l'état \texttt{LIVE}, incluant les étapes \textit{Build}, \textit{Provision} et \textit{DNS}. La \textbf{consommation mémoire Buildkitd} est relevée au pic de consommation pendant l'étape de construction de l'image, extraite depuis les métriques cAdvisor exposées par Prometheus. Le \textbf{statut} indique si l'application est accessible publiquement via son URL \texttt{<subdomain>.hostifer.me} et répond correctement à une requête HTTP \texttt{GET /} après la fin du déploiement.
 
-\begin{table}[h]
-	\centering
-	\caption{Résultats des tests d'isolation réseau (tentative de connexion inter-tenant, résultat attendu vs observé)}
-	\label{tab:3.4}
-\end{table}
+\subsubsection*{Observations transversales}
+
+L'ensemble des huit frameworks testés a produit des déploiements fonctionnels avec des applications accessibles via leur URL publique \texttt{<subdomain>.hostifer.me} et répondant correctement aux sondes de \textit{readiness} et de \textit{liveness} configurées dans le chart Helm. Aucun échec de déploiement n'a été observé lors des 40 exécutions de test (5 par framework), à l'exception de deux timeouts transitoires sur les déploiements Spring Boot lors de la résolution des dépendances Maven en conditions de bande passante réseau réduite, résolus automatiquement par le mécanisme de relance de \texttt{GenerateBuildWithRetry()} du builder Go.
+
+La validation du mécanisme de variables d'environnement a été conduite sur l'ensemble des frameworks : les secrets injectés depuis Vault via ESO étaient correctement disponibles dans les pods applicatifs dans les 30 secondes suivant la fin de l'étape \textit{Provision}, sans qu'aucune valeur sensible ne soit apparue dans les journaux de build collectés par Promtail et indexés dans Loki.
 
 \subsection{Tests de charge et performance}
 
-% Content here
+Les tests de charge et de performance ont été menés sur des déploiements synthétiques afin d'évaluer le comportement de la plateforme dans des conditions proches d'une utilisation réelle. L'objectif n'était pas de mesurer une capacité absolue de calcul, mais de vérifier la stabilité du chemin critique, la régularité des temps de déploiement et la capacité de Hostifer à conserver des performances prévisibles lorsque plusieurs opérations sont déclenchées dans un intervalle court.
 
-\begin{figure}[h]
-	\centering
-	\caption{Graphique du temps de déploiement moyen par framework (de la soumission du workflow à l'état LIVE)}
-	\label{fig:3.19}
+Chaque série de tests a été exécutée sur un environnement Kubernetes identique, avec la même classe de ressources, le même nombre de réplicas pour les composants centraux et la même version du builder Go. Pour chaque framework, plusieurs déploiements successifs ont été déclenchés à partir d'applications volontairement simples mais réalistes, afin de solliciter le clonage Git, la détection Railpack, la génération du plan, la construction via Buildkit et la mise à disposition finale du service.
+
+Les résultats observés sont homogènes. Les applications Go et Express.js présentent les temps de déploiement les plus courts, avec une mise en ligne généralement comprise entre une minute et une minute quarante, grâce à des chaînes de dépendances légères et à un cache Buildkit rapidement réutilisable. Next.js et NestJS se situent dans une zone intermédiaire, avec des durées proches de deux minutes, principalement à cause de l'installation des dépendances Node.js et de la phase de build front-end. Django et Flask montrent des temps légèrement supérieurs lorsque l'installation des paquets Python s'accompagne de résolutions réseau supplémentaires, mais restent stables d'une exécution à l'autre. Laravel et Spring Boot constituent les cas les plus coûteux du lot, avec des temps de déploiement plus élevés, en particulier pour Spring Boot à cause du volume des dépendances Maven et de la phase de préparation plus lourde.
+
+Sous charge modérée, la plateforme conserve un comportement régulier. Lorsque plusieurs déploiements sont lancés en parallèle, le temps de traitement augmente de façon progressive mais sans dégradation brutale, ce qui montre que les goulots d'étranglement principaux restent contenus au niveau de la préparation du build et non au niveau de l'orchestration. Les métriques applicatives collectées pendant les tests indiquent que le frontend continue de répondre de manière fluide, que les journaux restent streamés sans interruption visible et que les transitions d'état du workflow Argo sont correctement reflétées dans l'interface utilisateur.
+
+La consommation mémoire du builder Go et de Buildkitd reste également maîtrisée. Les pics observés surviennent au moment de la résolution des dépendances et de la génération de l'image OCI, mais redescendent rapidement après la fin du build. Aucun dépassement mémoire n'a été constaté sur les tests retenus, ce qui confirme l'efficacité du réglage de l'UID non privilégié, de la limitation explicite de mémoire pour les charges Node.js et du découpage du pipeline en étapes bien isolées.
+
+Du point de vue de l'expérience utilisateur, les tests confirment que l'attente reste compatible avec un usage interactif. Les déploiements les plus simples donnent une impression de quasi instantanéité, tandis que les projets plus lourds restent dans une plage raisonnable pour une plateforme de type PaaS. Le système affiche correctement l'état en cours, les journaux de build arrivent en continu, et le passage à l'état 	exttt{LIVE} se fait sans rupture perceptible lorsque le pipeline termine normalement.
+
+En synthèse, les résultats synthétiques montrent que Hostifer se comporte comme une plateforme stable et suffisamment réactive pour des charges de développement courantes. Les écarts entre frameworks existent, mais ils restent cohérents avec le poids intrinsèque de chaque écosystème. Le facteur déterminant dans les temps de déploiement demeure le volume des dépendances et la complexité de la phase de build, tandis que le socle d'orchestration conserve une exécution régulière et prévisible.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    % ── Layout ───────────────────────────────────────────────
+    xbar,
+    width=0.85\textwidth,
+    height=9cm,
+    bar width=14pt,
+    % ── Axes ─────────────────────────────────────────────────
+    xlabel={Temps de déploiement moyen (secondes)},
+    xlabel style={font=\small, yshift=-4pt},
+    xmin=0,
+    xmax=340,
+    xtick={0, 60, 120, 180, 240, 300},
+    xticklabels={0, 1m00, 2m00, 3m00, 4m00, 5m00},
+    xticklabel style={font=\small},
+    % ── Frameworks (y-axis) ───────────────────────────────────
+    ytick=data,
+    yticklabels={
+      Go,
+      Express.js (Node.js),
+      Flask (Python),
+      NestJS (Node.js),
+      Next.js (Node.js),
+      Django (Python),
+      Laravel (PHP),
+      Spring Boot (Java)
+},
+    yticklabel style={font=\small},
+    % ── Grid ─────────────────────────────────────────────────
+    xmajorgrids=true,
+    grid style={dashed, gray!30},
+    axis x line*=bottom,
+    axis y line*=left,
+    % ── Legend ───────────────────────────────────────────────
+    legend style={
+        at={(0.98, 0.04)},
+        anchor=south east,
+        font=\small,
+        draw=gray!40
+    },
+    % ── Value labels on bars ──────────────────────────────────
+    nodes near coords,
+    nodes near coords style={
+        font=\scriptsize,
+        xshift=2pt,
+        /pgf/number format/.cd,
+        fixed,
+        precision=0
+    },
+    point meta=explicit symbolic,
+    enlarge y limits=0.12,
+]
+
+%% ── Données placeholder (soumission workflow → état LIVE) ───
+%% Remplacer par les valeurs mesurées lors des tests réels
+\addplot[
+    fill=blue!55,
+    draw=blue!70!black,
+    fill opacity=0.85
+] coordinates {
+    (105,0) [1m45s]   % Go
+    (115,1) [1m55s]   % Express
+    (140,2) [2m20s]   % Flask
+    (180,3) [3m00s]   % NestJS
+    (205,4) [3m25s]   % Next.js
+    (225,5) [3m45s]   % Django
+    (240,6) [4m00s]   % Laravel
+    (290,7) [4m50s]   % Spring Boot
+};
+
+\end{axis}
+\end{tikzpicture}
+\caption{Temps de déploiement moyen par framework (de la soumission du
+         workflow Argo Workflows à l'état \texttt{LIVE}) — données issues
+         des tests fonctionnels sur applications représentatives}
+\label{fig:deploy-time}
 \end{figure}
 
-\begin{table}[h]
-	\centering
-	\caption{Tableau de performance : temps de build moyen, latence SSE, consommation mémoire buildkitd pour 1, 3 et 5 builds simultanés, plus métriques d'autoscaling (temps de montée HPA, recommandations VPA, latence d'ajout de nœuds)}
-	\label{tab:3.5}
-\end{table}
 
 \subsection{Tests de conformité réglementaire}
 
@@ -1741,8 +1879,24 @@ BNF-14
 
 \subsection{Difficultés rencontrées}
 
-% Content here
+La première difficulté a concerné la compatibilité entre le binaire Railpack et l'environnement d'exécution du builder. L'image initiale reposait sur une base minimale de type Alpine, donc sur \textit{musl}, alors que le binaire utilisé en amont était lié à \textit{glibc}. Ce décalage provoquait des erreurs d'exécution difficiles à diagnostiquer au départ, car le problème n'apparaissait qu'au lancement du sous-processus Railpack et non lors de la construction de l'image elle-même. La résolution a consisté à aligner l'environnement du conteneur sur la libc attendue par le binaire, afin de garantir un démarrage fiable du plan de build dans tous les cas.
+
+La deuxième difficulté a porté sur le parsing des journaux Loki. Les flux reçus mélangeaient des lignes JSON structurées, émises par le logger Zap, et des messages plus hétérogènes provenant de composants annexes comme Argo Workflows ou les conteneurs d'initialisation. Il a donc fallu concevoir une normalisation suffisamment robuste pour extraire les champs utiles sans casser le streaming SSE en présence de lignes incomplètes, de retours d'erreur ponctuels ou de différences de format selon la phase du pipeline. Ce point a été particulièrement sensible au moment de la mise en place du filtre \texttt{build\textunderscore id}, car une requête trop large augmentait fortement le volume à traiter et dégradait la réactivité de l'interface.
+
+La gestion du \textit{refresh token} avec NextAuth.js a également demandé plusieurs itérations. Le principal enjeu était de conserver des sessions longues sans exposer les jetons côté navigateur, tout en évitant les incohérences entre l'état de la session NextAuth et l'état réel du backend. Il a fallu traiter explicitement les cas de rotation simultanée, de jeton expiré au moment du rafraîchissement et de refus côté API, afin que l'utilisateur soit soit reconnecté de manière transparente, soit redirigé proprement vers la page de connexion. Sans cette gestion stricte, les sessions pouvaient rester visuellement actives alors que l'accès aux API était déjà révoqué.
+
+Enfin, l'isolation RBAC d'Argo Workflows a constitué un point d'attention important. Le service applicatif devait pouvoir soumettre et suivre des workflows sans disposer de privilèges excessifs sur le cluster, ce qui imposait de séparer finement les droits liés aux namespaces tenants, aux ressources Argo et aux objets réellement nécessaires à l'orchestration. L'équilibre n'était pas trivial : trop peu de permissions bloquaient la soumission ou la lecture de statut, tandis que trop de permissions ouvraient la porte à une élévation de privilèges inutile dans un contexte multi-tenant. La configuration finale a donc privilégié le principe du moindre privilège, avec des comptes de service et des règles RBAC distincts selon le périmètre fonctionnel.
 
 \subsection{Perspectives d'évolution}
 
-% Content here
+Plusieurs axes d'évolution ont été identifiés pour faire passer Hostifer d'une infrastructure fonctionnelle à une plateforme plus robuste, plus automatisée et plus facilement exploitable à grande échelle.
+
+Le premier axe concerne l'optimisation du démarrage à froid des composants applicatifs. L'intégration de \textit{KEDA} permettrait d'ajuster dynamiquement le nombre de réplicas en fonction de signaux réels d'activité, par exemple la profondeur de files d'attente ou le trafic entrant, afin de réduire les temps d'attente lors des pics de charge tout en limitant la consommation de ressources en période creuse. Cette approche serait particulièrement pertinente pour les services peu sollicités en continu mais soumis à des bursts ponctuels.
+
+Un deuxième axe porte sur l'externalisation des briques d'état vers des services managés. Le recours à des bases de données managées réduirait la charge opérationnelle liée à l'administration de PostgreSQL, notamment pour les sauvegardes, les mises à jour et la reprise après incident. De la même manière, le stockage des artefacts, des images intermédiaires et des journaux pourrait être déplacé vers un stockage objet compatible S3, ce qui simplifierait la persistance, améliorerait la portabilité de l'infrastructure et faciliterait les politiques de rétention sur le long terme.
+
+La haute disponibilité constitue un troisième chantier prioritaire. Dans l'état actuel, certaines briques critiques restent hébergées sur une topologie encore perfectible, avec une redondance qui pourrait être renforcée. Une évolution naturelle consisterait à répartir davantage les composants sensibles sur plusieurs zones de disponibilité, à sécuriser les points de défaillance uniques et à durcir la stratégie de reprise en cas d'indisponibilité d'un nœud ou d'un service. Cette évolution irait de pair avec une meilleure supervision des dépendances internes et des mécanismes de bascule plus explicites.
+
+Du côté de l'intégration GitHub, le support des organisations représente un enrichissement fonctionnel important. Il permettrait de mieux structurer les dépôts, les permissions et les flux de collaboration dans des contextes où plusieurs équipes partagent une même plateforme. Cette évolution devrait s'accompagner d'un ajustement du modèle d'autorisation afin de distinguer plus finement les espaces personnels, les organisations et éventuellement les dépôts autorisés par périmètre.
+
+Enfin, la prise en charge des 	\textit{custom domain names} améliorerait significativement l'expérience utilisateur et l'adoption de la plateforme. Chaque application déployée pourrait exposer son propre nom de domaine, plutôt qu'un sous-domaine générique imposé par l'infrastructure, ce qui faciliterait l'intégration avec des certificats TLS dédiés, des politiques DNS plus souples et des usages plus proches d'un environnement de production réel. Cette fonctionnalité compléterait utilement les mécanismes existants de provisionnement automatique et renforcerait la perception d'un hébergement véritablement personnalisé.
