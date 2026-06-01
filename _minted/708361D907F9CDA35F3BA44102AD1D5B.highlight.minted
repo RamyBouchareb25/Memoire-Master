@@ -1,0 +1,32 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} Policy 1 — Refus total du trafic entrant et sortant par defaut}
+\PYG{c+c1}{\PYGZsh{} Toute communication est bloquee sauf autorisation explicite}
+\PYG{n+nt}{apiVersion}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{networking.k8s.io/v1}
+\PYG{n+nt}{kind}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{NetworkPolicy}
+\PYG{n+nt}{metadata}\PYG{p}{:}
+\PYG{+w}{  }\PYG{n+nt}{name}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{default\PYGZhy{}deny\PYGZhy{}all}
+\PYG{+w}{  }\PYG{n+nt}{namespace}\PYG{p}{:}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZob{}\PYGZob{}}\PYG{+w}{ }\PYG{n+nv}{.Values.tenant.id}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZcb{}\PYGZcb{}}
+\PYG{n+nt}{spec}\PYG{p}{:}
+\PYG{+w}{  }\PYG{n+nt}{podSelector}\PYG{p}{:}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZob{}\PYGZcb{}}\PYG{+w}{       }\PYG{c+c1}{\PYGZsh{} s\PYGZsq{}applique a tous les pods du namespace}
+\PYG{+w}{  }\PYG{n+nt}{policyTypes}\PYG{p}{:}
+\PYG{+w}{    }\PYG{p+pIndicator}{\PYGZhy{}}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{Ingress}
+\PYG{+w}{    }\PYG{p+pIndicator}{\PYGZhy{}}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{Egress}
+\PYG{n+nn}{\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{c+c1}{\PYGZsh{} Policy 2 — Entree autorisee depuis le namespace Traefik uniquement}
+\PYG{c+c1}{\PYGZsh{} Aucun autre namespace ne peut atteindre les pods applicatifs du tenant}
+\PYG{n+nt}{apiVersion}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{networking.k8s.io/v1}
+\PYG{n+nt}{kind}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{NetworkPolicy}
+\PYG{n+nt}{metadata}\PYG{p}{:}
+\PYG{+w}{  }\PYG{n+nt}{name}\PYG{p}{:}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{allow\PYGZhy{}traefik\PYGZhy{}ingress}
+\PYG{+w}{  }\PYG{n+nt}{namespace}\PYG{p}{:}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZob{}\PYGZob{}}\PYG{+w}{ }\PYG{n+nv}{.Values.tenant.id}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZcb{}\PYGZcb{}}
+\PYG{n+nt}{spec}\PYG{p}{:}
+\PYG{+w}{  }\PYG{n+nt}{podSelector}\PYG{p}{:}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZob{}\PYGZcb{}}
+\PYG{+w}{  }\PYG{n+nt}{policyTypes}\PYG{p}{:}
+\PYG{+w}{    }\PYG{p+pIndicator}{\PYGZhy{}}\PYG{+w}{ }\PYG{l+lScalar+lScalarPlain}{Ingress}
+\PYG{+w}{  }\PYG{n+nt}{ingress}\PYG{p}{:}
+\PYG{+w}{    }\PYG{p+pIndicator}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nt}{from}\PYG{p}{:}
+\PYG{+w}{        }\PYG{p+pIndicator}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nt}{namespaceSelector}\PYG{p}{:}
+\PYG{+w}{            }\PYG{n+nt}{matchLabels}\PYG{p}{:}
+\PYG{+w}{              }\PYG{c+c1}{\PYGZsh{} filtre par label Kubernetes natif du namespace Traefik}
+\PYG{+w}{              }\PYG{n+nt}{kubernetes.io/metadata.name}\PYG{p}{:}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZob{}\PYGZob{}}\PYG{+w}{ }\PYG{n+nv}{.Values.traefik.namespace}\PYG{+w}{ }\PYG{p+pIndicator}{\PYGZcb{}\PYGZcb{}}
+\end{MintedVerbatim}

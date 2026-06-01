@@ -1,0 +1,29 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{+w}{  }\PYG{n+nt}{\PYGZdq{}deploy\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}startCommand\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}bun run start\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}user\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}1000\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}variables\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}NODE\PYGZus{}ENV\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}production\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}CI\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}true\PYGZdq{}}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}inputs\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{      }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}step\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}packages:mise\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nt}{\PYGZdq{}include\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}/mise/shims\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}/mise/installs\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{      }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}step\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}build\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nt}{\PYGZdq{}include\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}/app/node\PYGZus{}modules\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{      }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}step\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}build\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n+nt}{\PYGZdq{}include\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}.\PYGZdq{}}\PYG{p}{],}
+\PYG{+w}{        }\PYG{n+nt}{\PYGZdq{}exclude\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}node\PYGZus{}modules\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}.yarn\PYGZdq{}}\PYG{p}{]}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{p}{]}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{},}
+
+\PYG{+w}{  }\PYG{n+nt}{\PYGZdq{}caches\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}next\PYGZdq{}}\PYG{p}{:}\PYG{+w}{         }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}directory\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}/app/.next/cache\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{                      }\PYG{n+nt}{\PYGZdq{}type\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}shared\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}bun\PYGZhy{}install\PYGZdq{}}\PYG{p}{:}\PYG{+w}{  }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}directory\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}/root/.bun/install/cache\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{                      }\PYG{n+nt}{\PYGZdq{}type\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}shared\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{n+nt}{\PYGZdq{}node\PYGZhy{}modules\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}directory\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}/app/node\PYGZus{}modules/.cache\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{                      }\PYG{n+nt}{\PYGZdq{}type\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}shared\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{p}{\PYGZcb{}}
+\PYG{p}{\PYGZcb{}}
+\end{MintedVerbatim}

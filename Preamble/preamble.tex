@@ -8,6 +8,21 @@
 \usepackage{graphicx}		% Including Graphics Files, delete the demo option if you want to include your owen Figs
 \usepackage{epstopdf}	    % adds support of handling eps images
 \usepackage{float} 			% Force the placement of Figs 
+% Improve float placement behavior so figures don't all float to the end
+% `placeins` on this TeXLive doesn't accept the `chapter` option, so load it
+% normally and insert FloatBarriers at chapter boundaries using `etoolbox`.
+\usepackage{placeins} % prevent floats from moving past explicit barriers
+\usepackage{etoolbox}
+\preto\chapter{\FloatBarrier}% force floats to be processed before each chapter
+\usepackage{flafter} % ensure floats appear after their definitions
+% Allow more floats on a page and be more permissive about float pages
+\renewcommand{\topfraction}{.85}
+\renewcommand{\textfraction}{.1}
+\renewcommand{\floatpagefraction}{.75}
+\setcounter{topnumber}{5}
+\setcounter{bottomnumber}{5}
+\setcounter{totalnumber}{10}
+\setcounter{dbltopnumber}{5}
 %% Language
 \usepackage[english,main=french]{babel} % Set the language
 %\addto\captionsfrench{\def\tablename{Tableau}}
@@ -36,6 +51,7 @@
 \usepackage{multirow}	% Merged rows and columns
 \usepackage{longtable}	% Insert a very long table,
 \usepackage{booktabs}   % To thicken table lines
+\newcommand{\tabmultirow}[2]{\multirow{#1}{=}{#2}}
 %% Space line
 \usepackage{setspace}
 \onehalfspacing
@@ -106,6 +122,9 @@
 \newcommand{\tab}[1]{Tableau.~\ref{#1}}
 %%
 \usepackage{hyperref}
+\usepackage{xurl}
+\urlstyle{tt}
+\DeclareRobustCommand{\texttt}[1]{\nolinkurl{#1}}
 \hypersetup{
 	final=true,
 	plainpages=false,
@@ -122,3 +141,58 @@
 	citecolor=blue,
 	anchorcolor=black
 }
+
+\usepackage{xcolor}
+
+
+% ── Préambule — à ajouter une seule fois ────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+% \lstdefinestyle{json}{
+%   basicstyle=\ttfamily\footnotesize,
+%   breaklines=true,
+%   breakatwhitespace=false,
+%   columns=fullflexible,
+%   keepspaces=true,
+%   frame=single,
+%   rulecolor=\color{gray!40},
+%   backgroundcolor=\color{gray!5},
+%   numbers=left,
+%   numberstyle=\tiny\color{gray},
+%   numbersep=8pt,
+%   showstringspaces=false,
+%   stringstyle=\color{orange!80!black},
+%   keywordstyle=\color{blue!70!black},
+%   commentstyle=\color{green!50!black},
+%   captionpos=b,
+%   aboveskip=12pt,
+%   belowskip=6pt,
+%   literate=
+%     {0}{{{\color{purple!80!black}0}}}{1}
+%     {1}{{{\color{purple!80!black}1}}}{1}
+%     {2}{{{\color{purple!80!black}2}}}{1}
+%     {3}{{{\color{purple!80!black}3}}}{1}
+%     {4}{{{\color{purple!80!black}4}}}{1}
+%     {5}{{{\color{purple!80!black}5}}}{1}
+%     {6}{{{\color{purple!80!black}6}}}{1}
+%     {7}{{{\color{purple!80!black}7}}}{1}
+%     {8}{{{\color{purple!80!black}8}}}{1}
+%     {9}{{{\color{purple!80!black}9}}}{1}
+% }
+
+\usepackage[utf8]{inputenc}
+\lstset{inputencoding=utf8, extendedchars=true}
+
+\usepackage{minted}
+\usepackage{caption}
+\usepackage{mdframed}
+
+% Custom float for long code listings that break across pages
+\newenvironment{longlisting}
+  {\captionsetup{type=listing}}
+  {}
+\usepackage[most, minted]{tcolorbox}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}

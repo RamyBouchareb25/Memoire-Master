@@ -1,7 +1,3 @@
-% ============================================================
-%  Chapitre 1 — État de l'Art et Analyse de l'Existant
-% ============================================================
-
 \chapter{État de l'Art et Analyse de l'Existant}
 
 Ce chapitre positionne Hostifer dans le contexte technologique mondial et algérien. Il présente les modèles de service cloud fondamentaux, analyse les solutions existantes sur le marché international et local, et identifie les lacunes que Hostifer entend combler. Cette analyse constitue la justification technique et économique du projet.
@@ -46,7 +42,9 @@ Ce positionnement PaaS se distingue cependant des offres internationales existan
     \includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/modeles-cloud.png}
     \caption{Pyramide des modèles de service cloud (IaaS / PaaS / SaaS) avec exemples de plateformes pour chaque niveau}
     \label{fig:1.1}
+    \label{fig:cloud-models}
 \end{figure}
+\FloatBarrier
 
 \begin{table}[h]
     \centering
@@ -90,6 +88,16 @@ La conteneurisation seule ne résout pas les problèmes opérationnels liés au 
 
 Kubernetes est un projet open source initialement développé par Google, publié en 2014 et confié à la Cloud Native Computing Foundation (CNCF) en 2016. Il automatise le déploiement, la mise à l'échelle et la gestion des applications conteneurisées sur un cluster de machines. Son architecture repose sur un plan de contrôle (\textit{control plane}) composé de l'\texttt{API Server}, du \texttt{Scheduler}, du \texttt{Controller Manager} et d'\texttt{etcd} (le magasin de données distribué de l'état du cluster), et d'un plan de données (\textit{data plane}) constitué des nœuds de travail (\textit{worker nodes}) exécutant les conteneurs applicatifs via un \textit{kubelet} et un runtime conforme CRI (\textit{Container Runtime Interface}). La Figure~\ref{fig:k8s-architecture} illustre cette architecture.
 
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/Kubernetes_Architecture.png}
+	\caption{Architecture d'un cluster Kubernetes (Master node, Worker nodes, etcd, API Server)}
+	\label{fig:1.2}
+  \label{fig:k8s-architecture}
+\end{figure}
+\FloatBarrier
+
 \subsection{Concepts clés de Kubernetes}
 
 La compréhension de l'implémentation de Hostifer nécessite la maîtrise de sept ressources Kubernetes fondamentales, décrites ci-après.
@@ -112,18 +120,12 @@ Le cycle de vie d'un Pod Kubernetes, depuis son état \texttt{Pending} jusqu'aux
 
 \begin{figure}[h]
 	\centering
-	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/Kubernetes_Architecture.png}
-	\caption{Architecture d'un cluster Kubernetes (Master node, Worker nodes, etcd, API Server)}
-	\label{fig:1.2}
-	\label{fig:pod-lifecycle}
-\end{figure}
-
-\begin{figure}[h]
-	\centering
 	\includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/pod_lifecycle.png}
 	\caption{Cycle de vie d'un Pod Kubernetes (Pending → Running → Succeeded/Failed)}
 	\label{fig:1.3}
+  \label{fig:pod-lifecycle}
 \end{figure}
+\FloatBarrier
 
 % ============================================================
 %  Section 1.3
@@ -181,28 +183,79 @@ L'analyse de ces six plateformes révèle un ensemble de limitations structurell
 
 Ces limitations justifient l'existence d'une offre PaaS locale adaptée au contexte réglementaire et économique algérien, dont l'analyse des initiatives existantes fait l'objet de la section suivante.
 
-\begin{table}[h]
-	\centering
-	\caption{Comparaison des plateformes PaaS internationales (hébergement, prix, frameworks supportés, CI/CD, free tier)}
-	\label{tab:1.2}
-	% \begin{tabular}{p{2cm} p{2.2cm} p{2.2cm} p{2.2cm} p={2.2cm} p{2cm}}
-	% 	\hline
-	% 	\textbf{Plateforme} & \textbf{Hébergement} & \textbf{Tarification} & \textbf{Frameworks} & \textbf{Free Tier} & \textbf{Limitation DZ} \\
-	% 	\hline
-	% 	Vercel & CDN Global (US) & Pay-as-you-go & Next.js, Frontend & Oui, généreux & Pas de CIB, latence \\
-	% 	\hline
-	% 	Railway & Multi-régions (US) & Ressources/mois & Node, Python, Go, Rust & Oui, limité & Pas CIB, frais change \\
-	% 	\hline
-	% 	Render & US-East & Ressources + durée & Node, Python, Go, Rust & Oui, limité & Pas CIB, latence \\
-	% 	\hline
-	% 	Heroku & AWS US/EU & Très cher (2022+) & 20+ langages & Non & Coûts élevés \\
-	% 	\hline
-	% 	Fly.io & Multi-régions (no DZ) & Pay-as-you-go & Tous (Docker) & Oui, petit & Pas datacenter local \\
-	% 	\hline
-	% 	Koyeb & AWS EU & Pay-as-you-go & Docker, Serverless & Oui, petit & Pas africain, frais \\
-	% 	\hline
-	% \end{tabular}
-\end{table}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{|>{\raggedright\arraybackslash}p{1.5cm}|>{\raggedright\arraybackslash}p{1.8cm}|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{2.0cm}|>{\raggedright\arraybackslash}p{1.7cm}|>{\raggedright\arraybackslash}p{2.6cm}|}
+\caption{Comparaison des plateformes PaaS internationales}
+\label{tab:paas-internationales} \\
+
+\hline
+\textbf{Plate-}\textbf{forme} & \textbf{Modèle de déploiement} & \textbf{Frameworks / Langages} & \textbf{Tarification} & \textbf{Free tier} & \textbf{Limitations contexte algérien} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Plate-}\textbf{forme} & \textbf{Modèle de déploiement} & \textbf{Frameworks / Langages} & \textbf{Tarification} & \textbf{Free tier} & \textbf{Limitations contexte algérien} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{6}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+\textbf{Vercel}
+  & Serverless + CDN edge ; déploiement depuis GitHub /GitLab /Bitbucket
+  & Next.js (natif), React, Vue, Svelte, Nuxt ; fonctions serverless Node.js / Edge Runtime
+  & Gratuit limité ; Pro 20~\$/mois ; Enterprise sur devis — facturation à la requête au-delà des quotas
+  & Oui — limites sur build minutes, bande passante et requêtes serverless
+  & Paiement USD uniquement ; régions US/EU/AP ; aucune conformité loi 18-07 ; latence élevée depuis l'Algérie \cite{paas-comparison} \\
+\hline
+
+\textbf{Railway}
+  & Conteneurs Docker ou détection automatique via Nixpacks /Railpack ; déploiement depuis GitHub
+  & Node.js, Python, Go, Ruby, PHP, Java, Rust ; bases de données PostgreSQL, MySQL, Redis, MongoDB
+  & Usage-based : 5~\$ de crédits/mois offerts après ajout d'un moyen de paiement ; facturation à la seconde
+  & Oui — 5~\$ de crédits mensuels (carte requise)
+  & Paiement USD, carte bancaire internationale obligatoire ; régions US/EU ; aucune résidence des données en Algérie \cite{heroku-alternatives} \\
+\hline
+
+\textbf{Render}
+  & Conteneurs managés ; déploiement depuis GitHub /GitLab ; IaC via \texttt{render.yaml}
+  & Node.js, Python, Ruby, Go, Rust, PHP, Elixir, Docker ; bases de données PostgreSQL managées
+  & Plans mensuels fixes par instance ; Web Service à partir de 7~\$/mois ; base de données à partir de 7~\$/mois
+  & Oui — services statiques gratuits ; services web avec mise en veille après inactivité
+  & Paiement USD ; régions US/EU uniquement ; données hors territoire algérien \cite{heroku-alternatives} \\
+\hline
+
+\textbf{Heroku}
+  & Dynos (conteneurs légers) ; déploiement via \texttt{git push heroku} ou GitHub ; Procfile
+  & Node.js, Python, Ruby, Java, PHP, Go, Scala, Clojure ; écosystème d'add-ons riche
+  & Eco dynos à partir de 5~\$/mois ; Basic à 7~\$/mois ; Standard à partir de 25~\$/mois
+  & Non — tier gratuit supprimé en novembre 2022
+  & Paiement USD ; infrastructure AWS (US/EU/AP) ; tarification élevée pour fonctionnalités équivalentes aux concurrents modernes \cite{heroku-alternatives} \\
+\hline
+
+\textbf{Fly.io}
+  & microVMs Firecracker ; déploiement via \texttt{flyctl} CLI ; image Docker requise
+  & Tout langage packagé en image Docker ; réseau maillé WireGuard multi-région natif
+  & Usage-based ; 3 VMs partagées incluses ; facturation à la seconde de calcul et au Go de transfert
+  & Oui — 3 microVMs shared CPU (carte requise pour déblocage complet)
+  & Paiement USD ; CLI-first (courbe d'apprentissage élevée) ; aucune région Afrique ; carte bancaire internationale requise \cite{flyio-arch} \\
+\hline
+
+\textbf{Koyeb}
+  & Serverless edge global ; déploiement depuis GitHub ou image Docker ; 25+ régions edge
+  & Node.js, Python, Go, Ruby, PHP, Rust, Java ; support natif GPU pour inférence IA
+  & Starter gratuit (2 nano services) ; plans Pro à partir de 79~\$/mois — facturation à la seconde
+  & Oui — 2 nano services sans carte bancaire requise
+  & Paiement USD ; aucune région Afrique du Nord ; plans Pro très onéreux pour le marché algérien \cite{koyeb-docs} \\
+\hline
+
+\end{longtable}
+\normalsize
 % ============================================================
 %  Section 1.4
 % ============================================================
@@ -436,6 +489,7 @@ Hostifer est conçu pour combler précisément cet espace. En combinant une arch
   \centering
   \caption{Diagramme TAM/SAM/SOM du marché algérien du cloud pour développeurs}
   \label{fig:1.4}
+  \includegraphics[width=1\linewidth]{5-Chapters/Chapter1/figures/TAM:SAM:SOM.png}
   \label{fig:tam-sam-som}
 \end{figure}
 

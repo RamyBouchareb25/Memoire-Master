@@ -69,7 +69,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \endlastfoot
 
 % ── Cluster ─────────────────────────────────────────────────
-\multirow{3}{*}{\shortstack{\textbf{Cluster}\\\textbf{Kubernetes}}}
+\tabmultirow{3}{\shortstack{\textbf{Cluster}\\\textbf{Kubernetes}}}
   & Service       & Alibaba Cloud ACK (\textit{Managed Pro}) \\
 \cline{2-3}
   & Distribution  & Kubernetes 1.31+ (ACK patch \texttt{x.y.z-aliyun.n}) \\
@@ -78,7 +78,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Node pool contrôle ───────────────────────────────────────
-\multirow{4}{*}{\shortstack{\textbf{Node pool} \\ \textbf{contrôle}}}
+\tabmultirow{4}{\shortstack{\textbf{Node pool} \\ \textbf{contrôle}}}
   & Nœuds         & 3 instances ECS \\
 \cline{2-3}
   & CPU           & 4 vCPU / nœud \\
@@ -89,7 +89,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Node pool travail ────────────────────────────────────────
-\multirow{5}{*}{\shortstack{\textbf{Node pool} \\ \textbf{travail}}}
+\tabmultirow{5}{\shortstack{\textbf{Node pool} \\ \textbf{travail}}}
   & Nœuds         & 3 instances ECS (extensible) \\
 \cline{2-3}
   & CPU           & 4 vCPU / nœud \\
@@ -102,7 +102,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Réseau ──────────────────────────────────────────────────
-\multirow{6}{*}{\textbf{Réseau}}
+\tabmultirow{6}{\textbf{Réseau}}
   & VPC           & 1 VPC isolé, 1 vSwitch nœuds \\
 \cline{2-3}
   & SLB applicatif      & 1 SLB — ports 80/443 (trafic HTTP/HTTPS entrant) \\
@@ -117,7 +117,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Stockage ────────────────────────────────────────────────
-\multirow{3}{*}{\textbf{Stockage}}
+\tabmultirow{3}{\textbf{Stockage}}
   & NAS (NFS)     & PVC multi-nœuds (\textit{ReadWriteMany}) — registre OCI, Loki \\
 \cline{2-3}
   & EBS (ESSD)    & Volumes bloc haute performance (\textit{ReadWriteOnce}) — cache Buildkitd \\
@@ -157,14 +157,14 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Runtimes ────────────────────────────────────────────────
-\multirow{2}{*}{\textbf{Runtimes}}
+\tabmultirow{2}{\textbf{Runtimes}}
   & Node.js 24 LTS & Environnement d'exécution JavaScript pour le frontend Next.js et le backend NestJS \\
 \cline{2-3}
   & Go (dernière version LTS) & Environnement d'exécution du binaire builder \\
 \hline
 
 % ── Frameworks ──────────────────────────────────────────────
-\multirow{2}{*}{\textbf{Frameworks}}
+\tabmultirow{2}{\textbf{Frameworks}}
   & Next.js & Framework React full-stack pour le frontend de la plateforme \\
 \cline{2-3}
   & NestJS  & Framework Node.js modulaire pour le backend API REST et SSE \\
@@ -175,7 +175,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Gestionnaires de paquets ─────────────────────────────────
-\multirow{3}{*}{\textbf{Gestionnaires de paquets}}
+\tabmultirow{3}{\textbf{Gestionnaires de paquets}}
   & npm & Gestion des dépendances Node.js (frontend Next.js et backend NestJS) \\
 \cline{2-3}
   & Go Modules (\texttt{go mod}) & Gestion des dépendances du binaire builder Go \\
@@ -184,7 +184,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── Outils CLI ──────────────────────────────────────────────
-\multirow{8}{*}{\textbf{Outils CLI}}
+\tabmultirow{8}{\textbf{Outils CLI}}
   & \texttt{kubectl}  & Administration et inspection des ressources du cluster Kubernetes \\
 \cline{2-3}
   & \texttt{helm}     & Déploiement, mise à jour et test des charts Helm en local et en production \\
@@ -203,7 +203,7 @@ Le tableau~\ref{tab:infra-hardware} récapitule les caractéristiques de l'envir
 \hline
 
 % ── CI/CD ───────────────────────────────────────────────────
-\multirow{2}{*}{\textbf{Chaîne CI/CD}}
+\tabmultirow{2}{\textbf{Chaîne CI/CD}}
   & GitHub Actions & Intégration continue : lint, build, tests et publication des images OCI sur GHCR \\
 \cline{2-3}
   & ArgoCD         & Livraison continue : synchronisation GitOps des manifests Kubernetes vers le cluster ACK \\
@@ -286,9 +286,11 @@ Le tableau~\ref{tab:github-repos} récapitule l'ensemble des dépôts, leurs tec
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=1\linewidth]{5-Chapters/Chapter3/figures/Git repos and registries.png}
 	\caption{Schéma d'organisation des dépôts GitHub et registres OCI}
 	\label{fig:3.1}
 \end{figure}
+\FloatBarrier
 
 \section{Implémentation du backend NestJS}
 
@@ -298,9 +300,11 @@ Le tableau~\ref{tab:github-repos} récapitule l'ensemble des dépôts, leurs tec
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=1\linewidth]{5-Chapters/Chapter3/figures/app arboraissance.png}
 	\caption{Arborescence du projet NestJS avec description de chaque module (Auth, Users, Projects, Deployments, Logs, EnvVars, GitHub, Plans, Infrastructure)}
 	\label{fig:3.2}
 \end{figure}
+\FloatBarrier
 
 
 % ------------------------------------------------------------
@@ -577,13 +581,195 @@ L'injection de la limite de tas mémoire Node.js répond à un problème spécif
 La solution implémentée dans \texttt{railpack.go} consiste à injecter la variable d'environnement \texttt{NODE\_OPTIONS} avec la valeur \texttt{--max-old-space-size=<limitMb>} dans la commande de démarrage du plan Railpack. L'utilisation de \texttt{NODE\_OPTIONS} est préférée à l'injection directe du flag dans la commande \texttt{node}, car elle est prise en compte par tous les processus Node.js enfants créés dans l'environnement, y compris ceux démarrés par \texttt{npm} ou \texttt{yarn}. 
 
 La valeur de la limite en mégaoctets est déterminée par la fonction \texttt{nodeMemoryLimitMb()}, qui lit la variable d'environnement \texttt{MEMORY\_LIMIT\_MB} exposée au conteneur par le manifest Kubernetes du Job via le mécanisme \texttt{resourceFieldRef} de Kubernetes. Cette approche rend la limite dynamique et proportionnelle aux ressources allouées au Job par le plan tarifaire du tenant, sans hard-coding d'une valeur fixe dans l'image. Node.js depuis la version 12 est dit \textit{container-aware} et peut utiliser les limites cgroups du conteneur, mais l'injection explicite de \texttt{--max-old-space-size} reste recommandée pour découpler précisément la limite du tas V8 de la limite mémoire totale du conteneur.  En l'absence de la variable \texttt{MEMORY\_LIMIT\_MB}, la fonction retourne une valeur par défaut conservative afin de garantir un comportement prévisible même sans configuration explicite.
+% ── Part 1 : steps ──────────────────────────────────────────
+\begin{longlisting}
+\begin{mdframed}[
+  linecolor=gray!40,
+  backgroundcolor=gray!5,
+  linewidth=0.5pt,
+  innerleftmargin=6pt,
+  innerrightmargin=6pt,
+  innertopmargin=6pt,
+  innerbottommargin=6pt,
+  nobreak=false
+]
+\begin{minted}[
+  fontsize=\footnotesize,
+  linenos=true,
+  firstnumber=1,
+  breaklines=true,
+  breakanywhere=true,
+  numbersep=8pt
+]{json}
+{
+  "$schema": "https://schema.railpack.com",
 
-\begin{figure}[h]
-	\centering
-	\caption{Extrait du plan railpack-plan.json généré pour une application Node.js avec les modifications appliquées}
-	\label{fig:3.5}
-\end{figure}
+  "steps": [
+    {
+      "name": "packages:mise",
+      "commands": [
+        { "cmd": "mise install",
+          "customName": "install mise packages: bun, node" }
+      ],
+      "assets": {
+        "mise.toml": "[tools]\n  bun = \"1.3.14\"\n  node = \"22.22.3\""
+      }
+    },
+    {
+      "name": "install",
+      "commands": [
+        { "dest": "bun.lock",     "src": "bun.lock"     },
+        { "dest": "package.json", "src": "package.json" },
+        { "cmd": "bun install --frozen-lockfile" }
+      ],
+      "caches": ["bun-install"]
+    },
+    {
+      "name": "build",
+      "commands": [
+        { "cmd": "bun run build" },
+        {
+          "cmd": "chown -R 1000:1000 /app",
+          "customName": "set ownership to uid 1000"
+        }
+      ],
+      "variables": { "NEXT_TELEMETRY_DISABLED": "1" },
+      "secrets": ["*"],
+      "caches": ["node-modules", "next"]
+    }
+  ],
+\end{minted}
+\end{mdframed}
+\caption{Extrait du plan \texttt{railpack-plan.json} -- Partie 1 : etapes de build}
+\label{lst:railpack-plan-1}
+\end{longlisting}
 
+% ── Part 2 : deploy + caches ────────────────────────────────
+\begin{longlisting}
+\begin{mdframed}[
+  linecolor=gray!40,
+  backgroundcolor=gray!5,
+  linewidth=0.5pt,
+  innerleftmargin=6pt,
+  innerrightmargin=6pt,
+  innertopmargin=6pt,
+  innerbottommargin=6pt,
+  nobreak=false
+]
+\begin{minted}[
+  fontsize=\footnotesize,
+  linenos=true,
+  firstnumber=46,
+  breaklines=true,
+  breakanywhere=true,
+  numbersep=8pt
+]{json}
+  "deploy": {
+    "startCommand": "bun run start",
+    "user": "1000",
+    "variables": {
+      "NODE_ENV": "production",
+      "CI": "true"
+    },
+    "inputs": [
+      { "step": "packages:mise",
+        "include": ["/mise/shims", "/mise/installs"] },
+      { "step": "build",
+        "include": ["/app/node_modules"] },
+      { "step": "build",
+        "include": ["."],
+        "exclude": ["node_modules", ".yarn"] }
+    ]
+  },
+
+  "caches": {
+    "next":         { "directory": "/app/.next/cache",
+                      "type": "shared" },
+    "bun-install":  { "directory": "/root/.bun/install/cache",
+                      "type": "shared" },
+    "node-modules": { "directory": "/app/node_modules/.cache",
+                      "type": "shared" }
+  }
+}
+\end{minted}
+\end{mdframed}
+\caption{Extrait du plan \texttt{railpack-plan.json} -- Partie 2 : configuration de deploiement et caches}
+\label{lst:railpack-plan-2}
+\end{longlisting}
+
+% \begin{figure}[htbp]
+% \begin{lstlisting}[style=json,
+%   caption={Extrait du plan \texttt{railpack-plan.json} genere pour une
+%            application Next.js avec les modifications appliquees par le
+%            builder Go},
+%   label={lst:railpack-plan}]
+% {
+%   "$schema": "https://schema.railpack.com",
+
+%   "steps": [
+%     {
+%       "name": "packages:mise",
+%       "commands": [
+%         { "cmd": "mise install",
+%           "customName": "install mise packages: bun, node" }
+%       ],
+%       "assets": {
+%         "mise.toml": "[tools]\n  bun = \"1.3.14\"\n  node = \"22.22.3\""
+%       }
+%     },
+%     {
+%       "name": "install",
+%       "commands": [
+%         { "dest": "bun.lock",     "src": "bun.lock"     },
+%         { "dest": "package.json", "src": "package.json" },
+%         { "cmd": "bun install --frozen-lockfile" }
+%       ],
+%       "caches": ["bun-install"]
+%     },
+%     {
+%       "name": "build",
+%       "commands": [
+%         { "cmd": "bun run build" },
+%         {
+%           "cmd": "chown -R 1000:1000 /app",
+%           "customName": "set ownership to uid 1000"
+%         }
+%       ],
+%       "variables": { "NEXT_TELEMETRY_DISABLED": "1" },
+%       "secrets": ["*"],
+%       "caches": ["node-modules", "next"]
+%     }
+%   ],
+
+%   "deploy": {
+%     "startCommand": "bun run start",
+%     "user": "1000",
+%     "variables": {
+%       "NODE_ENV": "production",
+%       "CI": "true"
+%     },
+%     "inputs": [
+%       { "step": "packages:mise",
+%         "include": ["/mise/shims", "/mise/installs"] },
+%       { "step": "build",
+%         "include": ["/app/node_modules"] },
+%       { "step": "build",
+%         "include": ["."],
+%         "exclude": ["node_modules", ".yarn"] }
+%     ]
+%   },
+
+%   "caches": {
+%     "next":         { "directory": "/app/.next/cache",
+%                       "type": "shared" },
+%     "bun-install":  { "directory": "/root/.bun/install/cache",
+%                       "type": "shared" },
+%     "node-modules": { "directory": "/app/node_modules/.cache",
+%                       "type": "shared" }
+%   }
+% }
+% \end{lstlisting}
+% \end{figure}
 % ------------------------------------------------------------
 \subsection{Construction et push de l'image via Buildkit}
 % ------------------------------------------------------------
@@ -735,11 +921,130 @@ Le tableau~\ref{tab:helm-resources} récapitule l'ensemble des ressources créé
 
 \end{longtable}
 
-\begin{figure}[h]
-	\centering
-	\caption{Extrait du template NetworkPolicy illustrant l'isolation inter-tenant et l'autorisation Traefik uniquement}
-	\label{fig:3.6}
-\end{figure}
+% ── Figure 3.6 : NetworkPolicy template ─────────────────────
+\begin{longlisting}
+\begin{mdframed}[
+  linecolor=gray!40,
+  backgroundcolor=gray!5,
+  linewidth=0.5pt,
+  innerleftmargin=6pt,
+  innerrightmargin=6pt,
+  innertopmargin=6pt,
+  innerbottommargin=6pt,
+  nobreak=false
+]
+\begin{minted}[
+  fontsize=\footnotesize,
+  linenos=true,
+  firstnumber=1,
+  breaklines=true,
+  breakanywhere=true,
+  numbersep=8pt
+]{yaml}
+# Policy 1 — Refus total du trafic entrant et sortant par defaut
+# Toute communication est bloquee sauf autorisation explicite
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Values.tenant.id }}
+spec:
+  podSelector: {}       # s'applique a tous les pods du namespace
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Policy 2 — Entree autorisee depuis le namespace Traefik uniquement
+# Aucun autre namespace ne peut atteindre les pods applicatifs du tenant
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-ingress
+  namespace: {{ .Values.tenant.id }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              # filtre par label Kubernetes natif du namespace Traefik
+              kubernetes.io/metadata.name: {{ .Values.traefik.namespace }}
+\end{minted}
+\end{mdframed}
+\caption{Template NetworkPolicy (Partie 1) --- Isolation par defaut et
+         autorisation d'entree depuis Traefik uniquement
+         (\texttt{tenant-chart/templates/networkpolicy.yaml})}
+\label{lst:networkpolicy-1}
+\end{longlisting}
+
+% ── Figure 3.6 suite ─────────────────────────────────────────
+\begin{longlisting}
+\begin{mdframed}[
+  linecolor=gray!40,
+  backgroundcolor=gray!5,
+  linewidth=0.5pt,
+  innerleftmargin=6pt,
+  innerrightmargin=6pt,
+  innertopmargin=6pt,
+  innerbottommargin=6pt,
+  nobreak=false
+]
+\begin{minted}[
+  fontsize=\footnotesize,
+  linenos=true,
+  firstnumber=34,
+  breaklines=true,
+  breakanywhere=true,
+  numbersep=8pt
+]{yaml}
+---
+# Policy 3 — Sortie autorisee vers kube-dns uniquement (UDP+TCP 53)
+# Indispensable a toute resolution DNS depuis les pods applicatifs
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: {{ .Values.tenant.id }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Policy 4 — Sortie autorisee vers Internet public uniquement
+# Les plages RFC1918 (reseau prive du cluster) restent bloquees
+# Empeche un tenant d'atteindre les services internes d'un autre tenant
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet-egress
+  namespace: {{ .Values.tenant.id }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8      # RFC1918 — reseau prive classe A
+              - 172.16.0.0/12   # RFC1918 — reseau prive classe B
+              - 192.168.0.0/16  # RFC1918 — reseau prive classe C
+\end{minted}
+\end{mdframed}
+\caption{Template NetworkPolicy (Partie 2) --- Autorisation DNS et sortie
+         Internet avec exclusion des plages RFC1918
+         (\texttt{tenant-chart/templates/networkpolicy.yaml})}
+\label{lst:networkpolicy-2}
+\end{longlisting}
 
 % ------------------------------------------------------------
 \subsection{Pipeline Argo Workflows}
@@ -776,8 +1081,9 @@ Le \texttt{WorkflowTemplate} \texttt{hostifer-delete} orchestre la suppression c
 
 \begin{figure}[h]
 	\centering
+  \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter3/figures/Argo Finish.png}
 	\caption{Capture d'écran de l'interface Argo Workflows UI montrant un workflow de déploiement complet avec les trois étapes}
-	\label{fig:3.7}
+	\label{fig:3.5}
 \end{figure}
 
 % ------------------------------------------------------------
@@ -897,9 +1203,42 @@ Traefik, en tant que contrôleur d'entrée Kubernetes, se combine avec cert-mana
 Traefik est configuré avec un \texttt{TLSStore} par défaut référençant le \texttt{Secret} du certificat wildcard \texttt{*.hostifer.me}, permettant à toutes les \texttt{IngressRoutes} des tenants de bénéficier automatiquement de la terminaison TLS sans configuration individuelle par tenant. Lorsqu'une nouvelle application est déployée sur un sous-domaine \texttt{<subdomain>.hostifer.me}, le certificat wildcard existant couvre immédiatement ce nouveau sous-domaine, éliminant tout délai lié à l'émission d'un certificat spécifique et garantissant que l'application est accessible en HTTPS dès la fin de l'étape DNS du pipeline Argo Workflows.
 
 
+% ------------------------------------------------------------
 \subsection{Collecte des métriques avec Prometheus}
+% ------------------------------------------------------------
 
-% Content here
+La couche de métriques de Hostifer repose sur Prometheus, déployé via le chart \texttt{kube-prometheus-stack} dans le namespace \texttt{monitoring}. Cette couche remplit trois fonctions complémentaires : l'alimentation des tableaux de bord d'observabilité de la plateforme, la supervision des seuils d'alerte, et la fourniture des métriques d'infrastructure nécessaires aux décisions d'autoscaling du HPA. L'interface entre Prometheus et l'application est assurée par le module NestJS \texttt{metrics/}, qui expose une API REST authentifiée permettant au frontend Next.js d'interroger les données métriques sans exposer directement l'instance Prometheus au navigateur.
+
+\subsubsection*{Sources de métriques et ServiceMonitors}
+
+Prometheus collecte les métriques de la plateforme depuis trois catégories de sources, toutes découvertes automatiquement via des ressources \texttt{ServiceMonitor} gérées par l'opérateur Prometheus \cite{prometheus-operator}.
+
+\textbf{Métriques Kubernetes (kube-state-metrics et cAdvisor).} Le chart \texttt{kube-prometheus-stack} déploie automatiquement \texttt{kube-state-metrics}, qui expose l'état des ressources Kubernetes (nombre de pods par namespace, état des déploiements, événements) sous forme de métriques Prometheus. Le daemon \texttt{cAdvisor}, intégré à chaque \texttt{kubelet}, collecte les métriques de consommation des conteneurs : \texttt{container\_cpu\_usage\_seconds\_total} et \texttt{container\_memory\_working\_set\_bytes} sont les deux métriques principales consommées par le module \texttt{metrics/} du backend pour les graphiques de ressources par projet \cite{prometheus-operator}.
+
+\textbf{Métriques Traefik.} Traefik expose nativement un endpoint \texttt{/metrics} au format Prometheus, scrappé via un \texttt{ServiceMonitor} dédié. Les métriques clés collectées incluent \texttt{traefik\_service\_request\_duration\_seconds} (histogramme de latence par service), \texttt{traefik\_service\_requests\_total} (compteur de requêtes par code de statut), et \texttt{container\_network\_transmit\_bytes\_total} pour la bande passante sortante. Ces métriques sont exploitées pour calculer le débit, le taux d'erreur, le temps de réponse moyen et la bande passante des applications tenant dans les dashboards de la plateforme.
+
+\textbf{Métriques applicatives NestJS.} Le backend NestJS expose ses propres métriques sur l'endpoint \texttt{/metrics} via le package \texttt{@willsoto/nestjs-prometheus}, scrappé par Prometheus via un \texttt{ServiceMonitor} ciblant le service NestJS dans le namespace \texttt{hostifer-system}. Ces métriques couvrent la latence des requêtes HTTP (\texttt{http\_request\_duration\_seconds}), le débit par route, et des métriques métier personnalisées telles que \texttt{hostifer\_deployment\_queue\_length} reflétant la charge du pipeline Argo Workflows.
+
+\subsubsection*{Module \texttt{metrics/} du backend NestJS}
+
+Le module \texttt{metrics/} est responsable de l'agrégation et de l'exposition des métriques à destination du frontend Next.js. Il est composé de trois fichiers principaux : \texttt{metrics.controller.ts}, \texttt{metrics.service.ts} et \texttt{prometheus.service.ts}, complétés par l'utilitaire \texttt{time-range.utils.ts}.
+
+\textbf{\texttt{PrometheusService}.} Ce service encapsule l'intégralité de la communication HTTP avec l'API Prometheus, exposée sur l'endpoint intra-cluster \texttt{PROMETHEUS\_URL}. Il implémente deux méthodes d'interrogation principales : \texttt{query(promql)} pour les requêtes instantanées (\texttt{/api/v1/query}), et \texttt{queryRange(promql, start, end, step)} pour les requêtes sur plage temporelle (\texttt{/api/v1/query\_range}). Les appels sont effectués via \texttt{axios} avec des timeouts de 10 secondes pour les requêtes instantanées et 15 secondes pour les requêtes sur plage. Le service expose également des helpers de post-traitement : \texttt{scalarValueOrNull()} extrait une valeur scalaire en gérant les cas dégénérés (\texttt{NaN}, \texttt{+Inf}, \texttt{-Inf}), \texttt{timeSeries()} convertit les tableaux de valeurs Prometheus en objets \texttt{\{timestamp, value\}} avec timestamps en millisecondes, et \texttt{labeledValues()} mappe les résultats par label pour la construction des graphiques en secteurs.
+
+\textbf{\texttt{MetricsService} — tableau de bord global.} La méthode \texttt{getGlobalDashboard(userId)} construit un tableau de bord agrégé pour l'utilisateur authentifié en exécutant en parallèle, via \texttt{Promise.all}, un ensemble de requêtes PromQL instantanées et de requêtes SQL Prisma. Les requêtes Prometheus couvrent le débit de requêtes Traefik (filtre par namespace du tenant), le taux d'erreurs HTTP (4xx/5xx en pourcentage du total), le temps de réponse moyen en millisecondes, la bande passante totale sur 30 jours, l'utilisation du stockage via \texttt{kubelet\_volume\_stats\_used\_bytes}, et la consommation CPU par projet pour le graphique en secteurs. Les requêtes Prisma récupèrent simultanément le nombre de déploiements actifs (\texttt{status: LIVE}), le nombre d'échecs de build sur 30 jours, l'historique de déploiements groupé par jour sur 7 jours via SQL brut, et les 10 déploiements les plus récents. Les résultats sont post-traités avec des conversions d'unités standardisées (requêtes/minute, pourcentages à deux décimales, gigaoctets) avant d'être retournés au frontend.
+
+\textbf{\texttt{MetricsService} — métriques par projet.} La méthode \texttt{getProjectMetrics(projectId, userId, start, end)} retourne cinq séries temporelles pour un projet donné sur la plage demandée. La résolution de la requête (\textit{step}) est adaptée automatiquement à la durée de la plage : 30 secondes pour les plages inférieures à 6 heures, 1 minute pour les plages jusqu'à 24 heures, et 5 minutes au-delà. Les cinq séries sont : CPU (en millicores, filtre \texttt{container="app"}), mémoire (en Mo, \texttt{container\_memory\_working\_set\_bytes}), temps de réponse (rapport durée/comptage Traefik multiplié par 1000 pour les millisecondes), débit (taux de requêtes Traefik), et bande passante sortante (en Ko/s). Le filtre PromQL cible les métriques du namespace du tenant via le pattern \texttt{service=\textasciitilde"<namespace>-.*@kubernetescrd"}.
+
+\textbf{\texttt{MetricsController}.} Le contrôleur expose deux endpoints protégés par \texttt{JwtGuard} : \texttt{GET /metrics/dashboard} (tableau de bord global de l'utilisateur courant) et \texttt{GET /metrics/projects/:id} (métriques par projet avec paramètres de plage temporelle). La plage temporelle est parsée par la fonction \texttt{parseTimeRange()} de \texttt{time-range.utils.ts}, qui supporte deux modes exclusifs : absolu (paramètres \texttt{from} et \texttt{to} en secondes Unix) et relatif (paramètres \texttt{minutes}, \texttt{hours} ou \texttt{days}), avec une valeur par défaut des dernières 24 heures lorsqu'aucun paramètre n'est fourni.
+
+\subsubsection*{Consommation des métriques par le frontend Next.js}
+
+Le frontend Next.js consomme les deux endpoints du module \texttt{metrics/} depuis deux contextes d'affichage distincts, gérés respectivement par le composant \texttt{ProjectMetricsPanel.tsx} (métriques par projet) et les KPI cards du tableau de bord global.
+
+Les données de métriques sont affichées via le composant \texttt{chart.tsx}, abstraction commune de la bibliothèque de visualisation utilisée dans la plateforme. Les types de graphiques retenus sont adaptés à la nature de chaque métrique : graphiques en aires pour les séries temporelles CPU, mémoire et bande passante (dont la cumulativité visuelle est pertinente), graphiques en lignes pour le débit et le temps de réponse, graphiques en barres pour les déploiements par jour, et graphiques en secteurs pour la répartition de la consommation CPU par projet.
+
+La stratégie de rafraîchissement est différenciée selon la volatilité des données. Les métriques temps réel (CPU, mémoire, requêtes) sont rafraîchies toutes les 15 secondes via un intervalle React. Les statuts de déploiement sont interrogés toutes les 30 à 60 secondes. Les agrégats du tableau de bord global ne sont pas soumis à un polling périodique et sont rafraîchis uniquement à la navigation ou sur action explicite de l'utilisateur. Les séries temporelles historiques (plage $>$ 1 heure) sont mises en cache côté client pendant 1 à 5 minutes pour éviter les requêtes Prometheus redondantes sur des données à faible vélocité de changement.
+
 
 \section{Présentation des interfaces utilisateur}
 
@@ -1029,25 +1368,376 @@ Traefik est configuré avec un \texttt{TLSStore} par défaut référençant le \
 
 \subsection{Tests de conformité réglementaire}
 
-% Content here
+\begin{longtable}{|p{4cm}|p{6cm}|p{3cm}|}
+\caption{Checklist de conformité réglementaire et technique}
+\label{tab:compliance-checklist} \\
 
-\begin{table}[h]
-	\centering
-	\caption{Checklist de conformité (critère, mécanisme technique de conformité, statut vérifié)}
-	\label{tab:3.6}
-\end{table}
+\hline
+\textbf{Critère} & \textbf{Mécanisme technique de conformité} & \textbf{Statut} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Critère} & \textbf{Mécanisme technique de conformité} & \textbf{Statut} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{3}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+%% ── Résidence des données ───────────────────────────────────
+\multicolumn{3}{|l|}{\textbf{Résidence et souveraineté des données (loi 18-07 / loi 25-11)}} \\
+\hline
+Résidence des données en Algérie
+  & Infrastructure déployée sur Djezzy Cloud en Algérie. L'ensemble du cycle de vie des données (build, registry OCI, PostgreSQL, Vault, Loki) reste sur le territoire national.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Aucun transfert international de données sans autorisation
+  & Les connexions sortantes des worker nodes sont acheminées via NAT Gateway (SNAT) ; aucune donnée applicative ou personnelle n'est transmise vers des services externes. Les images de base Railpack/Docker sont tirées depuis GHCR lors du build uniquement.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Conformité loi 25-11 — traçabilité des traitements
+  & Journal d'audit (\texttt{ActivityLog}) enregistré en base PostgreSQL pour toute opération sur les données sensibles (création/modification/suppression de variables d'environnement, révélation de secrets, déclenchement de déploiements).
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+%% ── Chiffrement ─────────────────────────────────────────────
+\multicolumn{3}{|l|}{\textbf{Chiffrement et protection des données}} \\
+\hline
+
+Chiffrement des communications (transit)
+  & TLS obligatoire sur toutes les communications utilisateur–plateforme. Certificat wildcard \texttt{*.hostifer.me} émis par Let's Encrypt via cert-manager, terminaison TLS assurée par Traefik. Renouvellement automatique 30 jours avant expiration.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Secrets applicatifs jamais en clair
+  & Variables d'environnement stockées dans HashiCorp Vault KV v2 (chiffrement AES-256 au repos). Valeurs masquées dans l'API REST et l'interface utilisateur. Injection dans les pods via External Secrets Operator sans exposition intermédiaire. Aucune valeur sensible ne transite dans les journaux ou les variables d'environnement des Jobs Kubernetes.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Mots de passe utilisateurs hachés
+  & Hachage bcrypt des mots de passe avant persistance en base PostgreSQL. Aucun mot de passe stocké en clair.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Chiffrement des données au repos
+  & Volumes EBS et NAS chiffrés au niveau du fournisseur cloud (Alibaba Cloud). Vault chiffre les secrets indépendamment au niveau applicatif.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+%% ── Isolation multi-tenant ───────────────────────────────────
+\multicolumn{3}{|l|}{\textbf{Isolation multi-tenant}} \\
+\hline
+
+Isolation réseau inter-tenant
+  & NetworkPolicy \texttt{default-deny-all} appliquée sur chaque namespace tenant. Seul le trafic depuis le namespace Traefik est autorisé en entrée. Trafic vers les plages RFC1918 bloqué en sortie. Validation par tests d'isolation (Tableau~\ref{tab:network-isolation-tests}).
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Isolation des ressources (CPU / RAM)
+  & \texttt{ResourceQuota} et \texttt{LimitRange} par namespace garantissant que chaque tenant ne peut consommer que les ressources correspondant à son plan tarifaire. Impossibilité de dépasser les quotas via le HPA grâce aux bornes \texttt{maxAllowed} du VPA alignées sur le ResourceQuota.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Isolation des secrets entre tenants
+  & Chaque tenant dispose d'un chemin Vault KV v2 dédié (\texttt{secret/data/projects/<tenant\_id>}). Politique Vault restrictive limitant l'accès au seul chemin du tenant concerné. Kubernetes Secrets créés dans le namespace du tenant uniquement.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Absence de montage automatique de token API
+  & \texttt{automountServiceAccountToken: false} sur le ServiceAccount \texttt{tenant-sa} et sur les pods applicatifs. Un pod compromis ne peut pas interagir avec l'API Kubernetes du cluster.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Exécution en utilisateur non privilégié
+  & \texttt{runAsNonRoot: true}, \texttt{runAsUser: 1000}, \texttt{fsGroup: 1000} sur tous les pods applicatifs tenant. Cohérent avec le patch UID 1000 appliqué par le builder Go sur le plan Railpack.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+%% ── Contrôle d'accès ─────────────────────────────────────────
+\multicolumn{3}{|l|}{\textbf{Contrôle d'accès et authentification}} \\
+\hline
+
+Authentification par JWT avec rotation des tokens
+  & Jetons d'accès JWT de courte durée signés avec \texttt{JWT\_ACCESS\_SECRET} dédié. Rotation des jetons de rafraîchissement à chaque utilisation (\textit{refresh token rotation}). Jetons de rafraîchissement hachés en base de données.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Contrôle d'accès RBAC Kubernetes
+  & Rôles Kubernetes (Role / ClusterRole) à permissions minimales par composant (\texttt{argo-workflow-sa}, \texttt{tenant-sa}). Principe du moindre privilège appliqué sur l'ensemble des ServiceAccounts de la plateforme.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Validation HMAC des webhooks GitHub
+  & Signature HMAC-SHA256 vérifiée sur chaque requête webhook GitHub entrante. Requêtes avec signature invalide rejetées avec \texttt{401 Unauthorized} sans déclenchement de déploiement.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+%% ── Journalisation et audit ──────────────────────────────────
+\multicolumn{3}{|l|}{\textbf{Journalisation et audit}} \\
+\hline
+
+Journaux de build persistés et consultables
+  & Journaux de build collectés par Promtail (DaemonSet), indexés dans Loki avec labels \texttt{build\_id} et \texttt{tenant\_id}. Rétention 30 jours pour les journaux de build, 7 jours pour les journaux applicatifs.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Traçabilité des opérations sensibles
+  & Journal d'audit \texttt{ActivityLog} enregistré pour : création/modification/suppression de variables d'environnement, révélation de secrets (\texttt{env.reveal}), déclenchement et fin de déploiements. Chaque entrée inclut l'identifiant de l'utilisateur, l'horodatage et les métadonnées de l'opération.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+Secrets jamais présents dans les journaux
+  & Logger Zap (builder Go) configuré en mode production sans sérialisation des variables d'environnement. NestJS ne logue aucune valeur de secret. Vault ne retourne les valeurs en clair qu'aux appelants autorisés via des canaux chiffrés HTTPS.
+  & \textbf{\checkmark\ Vérifié} \\
+\hline
+
+\end{longtable}
 
 \section{Bilan et perspectives}
 
 \subsection{Fonctionnalités réalisées}
 
-% Content here
+\begin{longtable}{|p{0.8cm}|p{5.5cm}|p{2.2cm}|p{4.5cm}|}
+\caption{Tableau de couverture fonctionnelle}
+\label{tab:functional-coverage} \\
 
-\begin{table}[h]
-	\centering
-	\caption{Tableau de couverture fonctionnelle (besoin identifié au chapitre 2, statut d'implémentation : réalisé / partiel / reporté)}
-	\label{tab:3.7}
-\end{table}
+\hline
+\textbf{ID} & \textbf{Besoin identifié (Chapitre 2)} & \textbf{Statut} & \textbf{Remarque d'implémentation} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{ID} & \textbf{Besoin identifié (Chapitre 2)} & \textbf{Statut} & \textbf{Remarque d'implémentation} \\
+\hline
+\endhead
+
+\hline
+\multicolumn{4}{r|}{\small\textit{Suite à la page suivante}} \\
+\endfoot
+
+\hline
+\endlastfoot
+
+%% ── Besoins fonctionnels ────────────────────────────────────
+\multicolumn{4}{|l|}{\textbf{Besoins fonctionnels (BF)}} \\
+\hline
+
+BF-01
+  & S'inscrire avec email / mot de passe
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Module \texttt{auth/} NestJS — \texttt{register()}, hachage bcrypt, émission JWT \\
+\hline
+
+BF-02
+  & S'authentifier via OAuth GitHub
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Stratégie \texttt{passport-github2}, délégation OAuth au backend, création / mise à jour du compte utilisateur \\
+\hline
+
+BF-03
+  & Émettre et renouveler des jetons JWT
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Rotation des refresh tokens, callback \texttt{jwt} NextAuth.js, endpoint \texttt{POST /auth/refresh} \\
+\hline
+
+BF-04
+  & Créer un projet depuis une URL GitHub
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Module \texttt{projects/} — vérification installation GitHub, création enregistrement \texttt{Project}, enregistrement webhook \\
+\hline
+
+BF-05
+  & Consulter la liste des projets et leurs statuts
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{GET /projects} — \texttt{getUserProjects()}, statut dérivé du dernier déploiement \\
+\hline
+
+BF-06
+  & Déclencher manuellement un déploiement
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{POST /deployments} — \texttt{triggerDeployment()}, soumission du WorkflowTemplate Argo \\
+\hline
+
+BF-07
+  & Détecter automatiquement le framework applicatif
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Builder Job Go — \texttt{railpack prepare}, extraction depuis \texttt{railpack-info.json}, persistance dans \texttt{Project.framework} \\
+\hline
+
+BF-08
+  & Construire l'image OCI via Buildkit / Railpack
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{buildkit.go} — connexion gRPC Buildkitd, frontend Railpack \texttt{gateway.v0}, push registre interne \\
+\hline
+
+BF-09
+  & Déployer l'application via chart Helm
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Étape \textit{Provision} — \texttt{helm install oci://ghcr.io/hostifer/charts/tenant}, \texttt{--wait}, \texttt{--create-namespace} \\
+\hline
+
+BF-10
+  & Consulter les journaux de build en temps réel (SSE)
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{GET /deployments/:id/logs} — \texttt{@Sse()}, générateur async Loki \texttt{query\_range}, filtre \texttt{build\_id} / \texttt{container="main"} \\
+\hline
+
+BF-11
+  & Gérer les variables d'environnement (CRUD)
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Module \texttt{env-vars/} — upsert / list / reveal / delete avec audit \texttt{ActivityLog} \\
+\hline
+
+BF-12
+  & Stocker les secrets dans HashiCorp Vault
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{vault.service.ts} — écriture KV v2, auth Kubernetes, synchronisation ESO vers Kubernetes Secret \\
+\hline
+
+BF-13
+  & Déploiement automatique sur push GitHub (CI/CD)
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{POST /webhooks/github} — validation HMAC, \texttt{triggerDeploymentFromPush()}, soumission Argo \\
+\hline
+
+BF-14
+  & Consulter l'historique des déploiements
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & \texttt{GET /deployments} — liste paginée avec statuts, durées, commits et étapes \texttt{DeploymentStep} \\
+\hline
+
+BF-15
+  & Effectuer un retour arrière (rollback)
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & Conservation de l'historique des déploiements implémentée ; mécanisme de rollback via re-déploiement d'un tag d'image précédent présent mais sans interface UI dédiée \\
+\hline
+
+BF-16
+  & Supprimer un projet avec déprovisionning Kubernetes
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & WorkflowTemplate \texttt{hostifer-delete} — \texttt{helm uninstall} + \texttt{delete-dns-job} + suppression image registry en parallèle \\
+\hline
+
+BF-17
+  & Gérer les membres d'une équipe projet
+  & \textcolor{red!70!black}{\textbf{Reporté}}
+  & Non implémenté dans la version actuelle ; structure de données \texttt{ProjectMember} définie dans le schéma Prisma mais sans endpoints exposés \\
+\hline
+
+BF-18
+  & Administrer les tenants et ressources
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & Module \texttt{admin/} présent avec endpoints CRUD ; interface d'administration frontend non implémentée ; supervision via Argo UI et Grafana directement \\
+\hline
+
+BF-19
+  & Visualiser les workflows Argo en cours
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Interface Argo Workflows UI accessible sur le cluster ; synchronisation du statut via polling \texttt{syncDeploymentStatus()} \\
+\hline
+
+BF-20
+  & Configurer un domaine personnalisé
+  & \textcolor{red!70!black}{\textbf{Reporté}}
+  & Entité \texttt{Domain} définie dans le schéma Prisma ; aucun mécanisme de validation DNS et de génération de certificat TLS par domaine personnalisé implémenté \\
+\hline
+
+%% ── Besoins non fonctionnels ─────────────────────────────────
+\multicolumn{4}{|l|}{\textbf{Besoins non fonctionnels (BNF)}} \\
+\hline
+
+BNF-01
+  & Temps de déploiement $\leq$ 5 min pour frameworks standard
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Validé par les tests de performance (Tableau~\ref{tab:performance}) — temps moyen mesuré entre 2 min 10 s et 4 min 30 s selon le framework \\
+\hline
+
+BNF-02
+  & Latence SSE $\leq$ 2 s entre pod et navigateur
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Polling Loki toutes les 2 s ; latence mesurée $<$ 2,5 s en conditions normales \\
+\hline
+
+BNF-03
+  & SLA $\geq$ 99,5\% plan Standard
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & Infrastructure ACK multi-nœuds opérationnelle ; SLA formalisé non encore mesuré sur une période de production suffisante \\
+\hline
+
+BNF-04
+  & SLA $\geq$ 99,9\% plan Enterprise
+  & \textcolor{red!70!black}{\textbf{Reporté}}
+  & Plan Enterprise non encore commercialisé ; haute disponibilité multi-zone non configurée dans l'état actuel \\
+\hline
+
+BNF-05
+  & Isolation réseau inter-tenant (NetworkPolicy)
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & 4 NetworkPolicies par tenant validées par tests d'isolation (Tableau~\ref{tab:network-isolation-tests}) \\
+\hline
+
+BNF-06
+  & Secrets stockés dans Vault, jamais en clair
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & HashiCorp Vault KV v2 + ESO ; validé par checklist de conformité (Tableau~\ref{tab:compliance-checklist}) \\
+\hline
+
+BNF-07
+  & TLS obligatoire, certificats automatiques
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & cert-manager + Let's Encrypt + Cloudflare DNS-01 ; certificat wildcard \texttt{*.hostifer.me} renouvelé automatiquement \\
+\hline
+
+BNF-08
+  & RBAC Kubernetes par namespace et composant
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Role / ClusterRole / ClusterRoleBinding définis pour \texttt{argo-workflow-sa} et \texttt{tenant-sa} ; principe du moindre privilège appliqué \\
+\hline
+
+BNF-09
+  & HPA — scaling horizontal des pods $\leq$ 30 s sous charge
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & HPA configuré dans le chart Helm ; validation sous charge simulée réalisée ; temps de convergence mesuré entre 25 et 45 s selon la métrique cible \\
+\hline
+
+BNF-10
+  & VPA — recommandations en mode \texttt{recommendation}
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & VPA déployé en mode \texttt{recommendation} pour les profils Standard et Pro ; mode \texttt{auto} Enterprise non encore testé en production \\
+\hline
+
+BNF-11
+  & Cluster Autoscaler — ajout/suppression de nœuds $\leq$ 3 min
+  & \textcolor{orange!80!black}{\textbf{Partiel}}
+  & Cluster Autoscaler ACK configuré sur le node pool worker ; temps d'ajout de nœud mesuré entre 2 min 30 s et 4 min selon la charge initiale du cluster \\
+\hline
+
+BNF-12
+  & ResourceQuota — isolation des quotas multi-tenant
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & ResourceQuota par namespace validé ; dépassement de quota correctement rejeté par l'API server lors des tests \\
+\hline
+
+BNF-13
+  & Modularité du backend (mise à jour par module)
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Architecture NestJS en 17 modules indépendants ; pipeline CI/CD GitHub Actions par dépôt permettant le déploiement indépendant \\
+\hline
+
+BNF-14
+  & Provisionnement d'un tenant via chart Helm seul
+  & \textcolor{green!60!black}{\textbf{Réalisé}}
+  & Chart \texttt{tenant-chart} OCI — \texttt{helm install} crée l'ensemble des ressources sans intervention manuelle \\
+\hline
+
+\end{longtable}
 
 \subsection{Difficultés rencontrées}
 

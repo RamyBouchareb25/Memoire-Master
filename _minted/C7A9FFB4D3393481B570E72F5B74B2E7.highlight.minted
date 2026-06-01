@@ -1,0 +1,39 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{p}{\PYGZob{}}
+\PYG{+w}{  }\PYG{n+nt}{\PYGZdq{}\PYGZdl{}schema\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}https://schema.railpack.com\PYGZdq{}}\PYG{p}{,}
+
+\PYG{+w}{  }\PYG{n+nt}{\PYGZdq{}steps\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{    }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}name\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}packages:mise\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}commands\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}cmd\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}mise install\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{          }\PYG{n+nt}{\PYGZdq{}customName\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}install mise packages: bun, node\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{      }\PYG{p}{],}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}assets\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{        }\PYG{n+nt}{\PYGZdq{}mise.toml\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}[tools]\PYGZbs{}n  bun = \PYGZbs{}\PYGZdq{}1.3.14\PYGZbs{}\PYGZdq{}\PYGZbs{}n  node = \PYGZbs{}\PYGZdq{}22.22.3\PYGZbs{}\PYGZdq{}\PYGZdq{}}
+\PYG{+w}{      }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}name\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}install\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}commands\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}dest\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}bun.lock\PYGZdq{}}\PYG{p}{,}\PYG{+w}{     }\PYG{n+nt}{\PYGZdq{}src\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}bun.lock\PYGZdq{}}\PYG{+w}{     }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}dest\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}package.json\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}src\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}package.json\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}cmd\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}bun install \PYGZhy{}\PYGZhy{}frozen\PYGZhy{}lockfile\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{      }\PYG{p}{],}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}caches\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}bun\PYGZhy{}install\PYGZdq{}}\PYG{p}{]}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{    }\PYG{p}{\PYGZob{}}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}name\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}build\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}commands\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}cmd\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}bun run build\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{        }\PYG{p}{\PYGZob{}}
+\PYG{+w}{          }\PYG{n+nt}{\PYGZdq{}cmd\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}chown \PYGZhy{}R 1000:1000 /app\PYGZdq{}}\PYG{p}{,}
+\PYG{+w}{          }\PYG{n+nt}{\PYGZdq{}customName\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}set ownership to uid 1000\PYGZdq{}}
+\PYG{+w}{        }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{      }\PYG{p}{],}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}variables\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n+nt}{\PYGZdq{}NEXT\PYGZus{}TELEMETRY\PYGZus{}DISABLED\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}1\PYGZdq{}}\PYG{+w}{ }\PYG{p}{\PYGZcb{},}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}secrets\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}*\PYGZdq{}}\PYG{p}{],}
+\PYG{+w}{      }\PYG{n+nt}{\PYGZdq{}caches\PYGZdq{}}\PYG{p}{:}\PYG{+w}{ }\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}node\PYGZhy{}modules\PYGZdq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s2}{\PYGZdq{}next\PYGZdq{}}\PYG{p}{]}
+\PYG{+w}{    }\PYG{p}{\PYGZcb{}}
+\PYG{+w}{  }\PYG{p}{],}
+\end{MintedVerbatim}
