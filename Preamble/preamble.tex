@@ -29,6 +29,30 @@
 %% Page layout
 \usepackage[left=25mm,right=25mm,top=35mm,bottom=30mm]{geometry} % Margines
 \usepackage{afterpage}
+\usepackage{needspace}
+\BeforeBeginEnvironment{figure}{\Needspace{6\baselineskip}}
+\pretocmd{\section}{\Needspace{0.38\textheight}}{}{}
+\pretocmd{\subsection}{\Needspace{0.34\textheight}}{}{}
+\pretocmd{\subsubsection}{\Needspace{0.28\textheight}}{}{}
+\newenvironment{a3landscapefigure}
+  {%
+    \clearpage
+    \begingroup
+    \pdfpagewidth=420mm
+    \pdfpageheight=297mm
+    \paperwidth=420mm
+    \paperheight=297mm
+    \newgeometry{left=15mm,right=15mm,top=15mm,bottom=15mm}%
+  }
+  {%
+    \clearpage
+    \restoregeometry
+    \pdfpagewidth=210mm
+    \pdfpageheight=297mm
+    \paperwidth=210mm
+    \paperheight=297mm
+    \endgroup
+  }
 %% Set the Footer and the Header
 \usepackage{fancyhdr}
 \fancypagestyle{plain}{%

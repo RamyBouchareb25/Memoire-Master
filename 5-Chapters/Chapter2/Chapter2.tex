@@ -1,5 +1,7 @@
 \chapter{Conception et Architecture du Système}
 
+Ce chapitre traduit les besoins identifiés précédemment en une conception structurée du système Hostifer. Il formalise les acteurs, les exigences fonctionnelles et non fonctionnelles, puis décrit les modèles UML, les choix d'architecture et les technologies retenues. L'objectif est de relier les contraintes métier, réglementaires et techniques à une architecture cohérente, capable de supporter une plateforme PaaS multi-tenant exploitable en production.
+
 \section{Recueil et spécification des besoins}
 
 La phase de recueil et de spécification des besoins constitue le fondement de toute démarche d'ingénierie logicielle rigoureuse. Elle permet d'établir un contrat clair entre les parties prenantes et l'équipe de développement, en formalisant les attentes fonctionnelles et les contraintes non fonctionnelles du système. Dans le cadre de Hostifer, cette phase revêt une importance particulière, car la plateforme doit répondre simultanément aux exigences d'une infrastructure multi-tenant à haute disponibilité, aux contraintes réglementaires algériennes, et aux attentes d'utilisabilité propres aux développeurs. Les besoins ont été recueillis par une analyse itérative combinant l'étude des solutions existantes (menée au chapitre précédent) et la modélisation des cas d'usage réels identifiés lors de la conception.
@@ -312,23 +314,31 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 
 \subsection{Diagramme de classes}
 
-\begin{figure}[h]
+\begin{a3landscapefigure}
+\begin{figure}[p]
+	\noindent\begin{minipage}{360mm}
 	\centering
-	\includegraphics[angle=90,width=0.5\textheight,keepaspectratio]{5-Chapters/Chapter2/diagrams/Class Diagram.png}
+	\includegraphics[width=\linewidth,height=215mm,keepaspectratio]{5-Chapters/Chapter2/diagrams/Class Diagram.png}
 	\caption{Diagramme de classes UML complet (User, Project, Deployment, DeploymentStep, EnvVar, Plan, GitHubInstallation, GitHubRepository, ActivityLog, Notification, Domain)}
 	\label{fig:2.2}
+	\end{minipage}
 \end{figure}
+\end{a3landscapefigure}
 \FloatBarrier
 
 \subsection{Modèle Entité-Association}
 
 
-\begin{figure}[h]
+\begin{a3landscapefigure}
+\begin{figure}[p]
+	\noindent\begin{minipage}{360mm}
 	\centering
-	\includegraphics[width=1\linewidth]{5-Chapters/Chapter2/diagrams/Entity-Relation.png}
+	\includegraphics[width=\linewidth,height=215mm,keepaspectratio]{5-Chapters/Chapter2/diagrams/Entity-Relation.png}
 	\caption{Diagramme Entité-Association de la base de données PostgreSQL avec cardinalités}
 	\label{fig:2.3}
+	\end{minipage}
 \end{figure}
+\end{a3landscapefigure}
 \FloatBarrier
 
 
@@ -387,12 +397,16 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 \subsection{Vue d'ensemble de l'architecture}
 
 
-\begin{figure}[h]
+\begin{a3landscapefigure}
+\begin{figure}[p]
+	\noindent\begin{minipage}{360mm}
 	\centering
-    \includegraphics[width=\linewidth,height=0.9\textheight,keepaspectratio]{5-Chapters/Chapter2/diagrams/Architecture Global.png}
+    \includegraphics[width=\linewidth,height=215mm,keepaspectratio]{5-Chapters/Chapter2/diagrams/Architecture Global.png}
 	\caption{Schéma d'architecture générale de Hostifer : couche client (NextJS), couche API (NestJS), couche orchestration (Argo Workflows), couche infrastructure (Kubernetes, Buildkit, Registry, Loki, Vault), couche réseau (Traefik, Cloudflare, cert-manager)}
 	\label{fig:2.11}
+	\end{minipage}
 \end{figure}
+\end{a3landscapefigure}
 \FloatBarrier
  
 \subsection{Architecture multi-tenant}
@@ -476,6 +490,7 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 
 \end{longtable}
 
+\Needspace{0.55\textheight}
 \subsection{Architecture Du Réseaux Cloud}
 
 % Content here
@@ -489,6 +504,7 @@ BNF-14 & Maintenabilité & Paramétrabilité de l'infrastructure & Provisionneme
 \FloatBarrier
 
 
+\Needspace{0.55\textheight}
 \subsection{Architecture de gestion des secrets}
 
 % Content here
